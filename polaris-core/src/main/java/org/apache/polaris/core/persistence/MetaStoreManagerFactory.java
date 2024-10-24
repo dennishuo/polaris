@@ -32,6 +32,8 @@ import org.apache.polaris.core.storage.cache.StorageCredentialCache;
  * Configuration interface for configuring the {@link PolarisMetaStoreManager} via Dropwizard
  * configuration
  */
+// TODO for now, I keep the Discoverable interface in order to have both polaris-service (with
+// Dropwizard) and polaris-service-quarkus (with Quarkus)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 public interface MetaStoreManagerFactory extends Discoverable {
 

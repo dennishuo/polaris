@@ -33,7 +33,10 @@ dependencies {
   constraints {
     implementation("io.airlift:aircompressor:0.27") { because("Vulnerability detected in 0.25") }
   }
-  // TODO - this is only here for the Discoverable interface
+  // TODO - this is only here for the Discoverable interface, it should be remove when
+  // polaris-service will use Quarkus
+  // For now, I keep the Discoverable interface for now, to have both polaris-service (with
+  // Dropwizard) and polaris-service-quarkus (with Quarkus)
   // We should use a different mechanism to discover the plugin implementations
   implementation(platform(libs.dropwizard.bom))
   implementation("io.dropwizard:dropwizard-jackson")
