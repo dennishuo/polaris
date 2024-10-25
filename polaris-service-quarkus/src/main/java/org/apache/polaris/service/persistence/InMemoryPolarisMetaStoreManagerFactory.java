@@ -18,6 +18,7 @@
  */
 package org.apache.polaris.service.persistence;
 
+import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Collections;
 import java.util.HashSet;
@@ -29,6 +30,7 @@ import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.*;
 
 @ApplicationScoped
+@IfBuildProperty(name = "polaris.persistence.metastore-manager.type", stringValue = "in-memory")
 public class InMemoryPolarisMetaStoreManagerFactory
     extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
 

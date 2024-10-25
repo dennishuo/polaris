@@ -36,15 +36,22 @@ dependencies {
 
   implementation(platform(libs.quarkus.bom))
   implementation("io.quarkus:quarkus-rest")
+  implementation("io.quarkus:quarkus-logging-json")
 
-  compileOnly(libs.jakarta.ws.rs.api)
   compileOnly(libs.jakarta.enterprise.cdi.api)
   compileOnly(libs.jakarta.inject.api)
+  compileOnly(libs.jakarta.servlet.api)
   compileOnly(libs.jakarta.validation.api)
+  compileOnly(libs.jakarta.ws.rs.api)
 
   // TODO this will removed as soon as dropwizard will be removed
-  implementation(platform(libs.dropwizard.bom))
-  implementation("io.dropwizard:dropwizard-core")
+  compileOnly(platform(libs.dropwizard.bom))
+  compileOnly("io.dropwizard:dropwizard-core")
+
+  implementation(platform(libs.jackson.bom))
+  implementation("com.fasterxml.jackson.core:jackson-annotations")
+  implementation("com.fasterxml.jackson.core:jackson-core")
+  implementation("com.fasterxml.jackson.core:jackson-databind")
 
   implementation(libs.caffeine)
   implementation(libs.guava)

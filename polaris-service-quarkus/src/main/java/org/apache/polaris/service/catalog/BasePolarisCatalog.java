@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import jakarta.annotation.Nonnull;
 import java.io.Closeable;
@@ -38,7 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.iceberg.BaseMetastoreTableOperations;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
@@ -2082,8 +2082,8 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
   private static boolean isStorageProviderRetryableException(Exception ex) {
     // For S3/Azure, the exception is not wrapped, while for GCP the exception is wrapped as a
     // RuntimeException
-    Throwable rootCause = ExceptionUtils.getRootCause(ex);
-    if (rootCause == null) {
+    Throwable rootCause = Throwables.getRootCause(ex);
+    if (rootCause == ex) {
       // no root cause, let it retry
       return true;
     }

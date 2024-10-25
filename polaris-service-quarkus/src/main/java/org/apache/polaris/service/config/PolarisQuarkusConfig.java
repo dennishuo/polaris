@@ -22,6 +22,7 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
@@ -31,7 +32,6 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
 import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
@@ -41,6 +41,7 @@ import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.entity.PrincipalEntity;
+import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManagerImpl;
@@ -68,9 +69,14 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 
 public class PolarisQuarkusConfig {
 
+  @Inject
+  @ConfigProperty(name = "polaris.default-realms")
+  Set<String> defaultRealms;
+
   @Produces
-  public PolarisMetaStoreManager providePolarisMetaStoreManager() {
-    // FIXME TransactionWorkspaceMetaStoreManager
+  public PolarisMetaStoreManager providePolarisMetaStoreManager(MetaStoreManagerFactory factory) {
+    // FIXME
+    //    return factory.getOrCreateMetaStoreManager(realmContext);
     return new PolarisMetaStoreManagerImpl();
   }
 
@@ -119,7 +125,7 @@ public class PolarisQuarkusConfig {
       @ConfigProperty(name = "polaris.storage.aws.awsSecretKey") String awsSecretKey) {
     // FIXME configuration
     // FIXME optional bean
-    if (StringUtils.isNotBlank(awsAccessKey) && StringUtils.isNotBlank(awsSecretKey)) {
+    if (!awsAccessKey.isBlank() && !awsSecretKey.isBlank()) {
       LoggerFactory.getLogger(PolarisQuarkusConfig.class)
           .warn("Using hard-coded AWS credentials - this is not recommended for production");
       return StaticCredentialsProvider.create(

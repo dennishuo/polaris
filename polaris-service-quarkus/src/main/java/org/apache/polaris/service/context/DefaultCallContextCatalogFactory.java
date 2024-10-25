@@ -40,10 +40,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RequestScoped
-public class PolarisCallContextCatalogFactory implements CallContextCatalogFactory {
+public class DefaultCallContextCatalogFactory implements CallContextCatalogFactory {
 
   private static final Logger LOGGER =
-      LoggerFactory.getLogger(PolarisCallContextCatalogFactory.class);
+      LoggerFactory.getLogger(DefaultCallContextCatalogFactory.class);
 
   private static final String WAREHOUSE_LOCATION_BASEDIR =
       "/tmp/iceberg_rest_server_warehouse_data/";
