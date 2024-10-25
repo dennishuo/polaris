@@ -24,6 +24,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.ServiceOptions;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
@@ -39,11 +41,13 @@ import org.apache.polaris.core.storage.azure.AzureCredentialsStorageIntegration;
 import org.apache.polaris.core.storage.gcp.GcpCredentialsStorageIntegration;
 import software.amazon.awssdk.services.sts.StsClient;
 
+@ApplicationScoped
 public class PolarisStorageIntegrationProviderImpl implements PolarisStorageIntegrationProvider {
 
   private final Supplier<StsClient> stsClientSupplier;
   private final Supplier<GoogleCredentials> gcpCredsProvider;
 
+  @Inject
   public PolarisStorageIntegrationProviderImpl(
       Supplier<StsClient> stsClientSupplier, Supplier<GoogleCredentials> gcpCredsProvider) {
     this.stsClientSupplier = stsClientSupplier;

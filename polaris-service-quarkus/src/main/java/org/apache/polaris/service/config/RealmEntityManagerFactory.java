@@ -34,8 +34,7 @@ public class RealmEntityManagerFactory {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(RealmEntityManagerFactory.class.getName());
 
-  // TODO add qualifier
-  @Inject private MetaStoreManagerFactory metaStoreManagerFactory;
+  private final MetaStoreManagerFactory metaStoreManagerFactory;
 
   // Key: realmIdentifier
   private final Map<String, PolarisEntityManager> cachedEntityManagers = new HashMap<>();
@@ -45,6 +44,7 @@ public class RealmEntityManagerFactory {
     this.metaStoreManagerFactory = null;
   }
 
+  @Inject
   public RealmEntityManagerFactory(MetaStoreManagerFactory metaStoreManagerFactory) {
     this.metaStoreManagerFactory = metaStoreManagerFactory;
   }

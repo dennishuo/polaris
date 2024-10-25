@@ -20,9 +20,11 @@ package org.apache.polaris.service.config;
 
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Context;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
@@ -44,7 +46,6 @@ import org.apache.polaris.core.entity.PrincipalEntity;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
-import org.apache.polaris.core.persistence.PolarisMetaStoreManagerImpl;
 import org.apache.polaris.core.persistence.PolarisMetaStoreSession;
 import org.apache.polaris.core.persistence.PolarisTreeMapMetaStoreSessionImpl;
 import org.apache.polaris.core.persistence.PolarisTreeMapStore;
@@ -56,9 +57,7 @@ import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestCatalogApiServiceImpl;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestConfigurationApiServiceImpl;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceImpl;
-import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
-import org.apache.polaris.service.catalog.io.FileIOFactory;
-import org.apache.polaris.service.storage.PolarisStorageIntegrationProviderImpl;
+import org.apache.polaris.service.context.RealmContextResolver;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -74,53 +73,119 @@ public class PolarisQuarkusConfig {
   Set<String> defaultRealms;
 
   @Produces
-  public PolarisMetaStoreManager providePolarisMetaStoreManager(MetaStoreManagerFactory factory) {
-    // FIXME
-    //    return factory.getOrCreateMetaStoreManager(realmContext);
-    return new PolarisMetaStoreManagerImpl();
+  public Clock clock() {
+    return Clock.systemDefaultZone();
   }
 
+  // Polaris core beans - application scope
+
   @Produces
-  public StorageCredentialCache provideStorageCredentialCache() {
+  public StorageCredentialCache storageCredentialCache() {
     return new StorageCredentialCache();
   }
 
   @Produces
-  public PolarisEntityManager providePolarisEntityManager(
-      PolarisMetaStoreManager metaStoreManager,
-      PolarisMetaStoreSession metaStore,
-      StorageCredentialCache storageCredentialCache) {
-    // FIXME
-    return new PolarisEntityManager(metaStoreManager, () -> metaStore, storageCredentialCache);
-  }
-
-  @Produces
-  public PolarisConfigurationStore providePolarisConfigurationStore() {
+  public PolarisConfigurationStore polarisConfigurationStore() {
     return new DefaultConfigurationStore(new HashMap<>());
   }
 
   @Produces
-  public PolarisAuthorizer providePolarisAuthorizer(PolarisConfigurationStore configurationStore) {
+  public PolarisAuthorizer polarisAuthorizer(PolarisConfigurationStore configurationStore) {
     return new PolarisAuthorizer(configurationStore);
   }
 
   @Produces
-  public PolarisDiagnostics providePolarisDiagnostics() {
+  public PolarisDiagnostics polarisDiagnostics() {
     return new PolarisDefaultDiagServiceImpl();
   }
 
   @Produces
-  public PolarisTreeMapStore providePolarisTreeMapStore(PolarisDiagnostics diagnostics) {
+  public PolarisTreeMapStore polarisTreeMapStore(PolarisDiagnostics diagnostics) {
     return new PolarisTreeMapStore(diagnostics);
   }
 
   @Produces
-  public Clock provideClock() {
-    return Clock.systemDefaultZone();
+  public PolarisMetaStoreSession polarisMetaStoreSession(
+      // FIXME should this return Supplier<PolarisMetaStoreSession>?
+      PolarisTreeMapStore store, PolarisStorageIntegrationProvider storageIntegrationProvider) {
+    // FIXME PolarisEclipseLinkMetaStoreSessionImpl
+    return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegrationProvider);
+  }
+
+  // Polaris core beans - request scope
+
+  @Produces
+  @RequestScoped
+  public RealmContext realmContext(
+      @Context HttpServerRequest request, RealmContextResolver realmContextResolver) {
+    // TODO query params and headers
+    return realmContextResolver.resolveRealmContext(
+        request.absoluteURI(),
+        request.method().name(),
+        request.path(),
+        new HashMap<>(),
+        new HashMap<>());
   }
 
   @Produces
-  public AwsCredentialsProvider provideAwsCredentialsProvider(
+  @RequestScoped
+  public PolarisCallContext polarisCallContext(
+      PolarisMetaStoreSession metaStore,
+      PolarisDiagnostics diagnostics,
+      PolarisConfigurationStore polarisConfigurationStore,
+      Clock clock) {
+    return new PolarisCallContext(metaStore, diagnostics, polarisConfigurationStore, clock);
+  }
+
+  @Produces
+  @RequestScoped
+  public CallContext callContext(RealmContext realmContext, PolarisCallContext polarisCallContext) {
+    return CallContext.of(realmContext, polarisCallContext);
+  }
+
+  @Produces
+  @RequestScoped
+  public PolarisEntityManager polarisEntityManager(
+      MetaStoreManagerFactory factory,
+      RealmContext realmContext,
+      PolarisMetaStoreSession metaStoreSession,
+      StorageCredentialCache storageCredentialCache) {
+    PolarisMetaStoreManager metaStoreManager = factory.getOrCreateMetaStoreManager(realmContext);
+    return new PolarisEntityManager(
+        metaStoreManager, () -> metaStoreSession, storageCredentialCache);
+  }
+
+  @Produces
+  @RequestScoped
+  public IcebergRestOAuth2ApiService icebergRestOAuth2ApiService() {
+    return new IcebergRestOAuth2ApiServiceImpl();
+  }
+
+  @Produces
+  @RequestScoped
+  public IcebergRestConfigurationApiService icebergRestConfigurationApiService() {
+    return new IcebergRestConfigurationApiServiceImpl();
+  }
+
+  @Produces
+  @RequestScoped
+  public IcebergRestCatalogApiService icebergRestCatalogApiService() {
+    return new IcebergRestCatalogApiServiceImpl();
+  }
+
+  @Produces
+  @RequestScoped
+  public AuthenticatedPolarisPrincipal authenticatedPolarisPrincipal() {
+    // FIXME OIDC
+    PrincipalEntity principalEntity = new PrincipalEntity(null);
+    return new AuthenticatedPolarisPrincipal(principalEntity, Set.of());
+  }
+
+  // Required by PolarisStorageIntegrationProviderImpl
+  // FIXME refactor this
+
+  @Produces
+  public AwsCredentialsProvider awsCredentialsProvider(
       @ConfigProperty(name = "polaris.storage.aws.awsAccessKey") String awsAccessKey,
       @ConfigProperty(name = "polaris.storage.aws.awsSecretKey") String awsSecretKey) {
     // FIXME configuration
@@ -135,8 +200,7 @@ public class PolarisQuarkusConfig {
   }
 
   @Produces
-  public Supplier<StsClient> provideStsClientSupplier(
-      AwsCredentialsProvider awsCredentialsProvider) {
+  public Supplier<StsClient> stsClientSupplier(AwsCredentialsProvider awsCredentialsProvider) {
     return () -> {
       StsClientBuilder stsClientBuilder = StsClient.builder();
       if (awsCredentialsProvider != null) {
@@ -147,7 +211,7 @@ public class PolarisQuarkusConfig {
   }
 
   @Produces
-  public Supplier<GoogleCredentials> provideGcpCredentialsSupplier(
+  public Supplier<GoogleCredentials> gcpCredentialsSupplier(
       @ConfigProperty(name = "polaris.storage.gcp.token") String gcpAccessToken,
       @ConfigProperty(name = "polaris.storage.gcp.lifespan") Duration lifespan) {
     // FIXME configuration
@@ -166,80 +230,5 @@ public class PolarisQuarkusConfig {
                 }
               });
     };
-  }
-
-  @Produces
-  public PolarisStorageIntegrationProvider providePolarisStorageIntegrationProvider(
-      Supplier<StsClient> stsClientSupplier, Supplier<GoogleCredentials> gcpCredsSupplier) {
-    return new PolarisStorageIntegrationProviderImpl(stsClientSupplier, gcpCredsSupplier);
-  }
-
-  @Produces
-  public PolarisMetaStoreSession providePolarisMetaStoreSession(
-      PolarisTreeMapStore store, PolarisStorageIntegrationProvider storageIntegrationProvider) {
-    // FIXME PolarisEclipseLinkMetaStoreSessionImpl
-    return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegrationProvider);
-  }
-
-  // RealmContext realmContext
-  @Produces
-  @RequestScoped
-  public RealmContext provideRealmContext() {
-    // FIXME
-    return new RealmContext() {
-      @Override
-      public String getRealmIdentifier() {
-        return "";
-      }
-    };
-  }
-
-  @Produces
-  @RequestScoped
-  public PolarisCallContext providePolarisCallContext(
-      PolarisMetaStoreSession metaStore,
-      PolarisDiagnostics diagnostics,
-      PolarisConfigurationStore polarisConfigurationStore,
-      Clock clock) {
-    return new PolarisCallContext(metaStore, diagnostics, polarisConfigurationStore, clock);
-  }
-
-  @Produces
-  @RequestScoped
-  public CallContext provideCallContext(
-      RealmContext realmContext, PolarisCallContext polarisCallContext) {
-    return CallContext.of(realmContext, polarisCallContext);
-  }
-
-  @Produces
-  public FileIOFactory provideFileIOFactory() {
-    // TODO WasbTranslatingFileIOFactory
-    return new DefaultFileIOFactory();
-  }
-
-  @Produces
-  @RequestScoped
-  public IcebergRestOAuth2ApiService provideIcebergRestOAuth2ApiService() {
-    return new IcebergRestOAuth2ApiServiceImpl();
-  }
-
-  @Produces
-  @RequestScoped
-  public IcebergRestConfigurationApiService provideIcebergRestConfigurationApiService() {
-    return new IcebergRestConfigurationApiServiceImpl();
-  }
-
-  @Produces
-  @RequestScoped
-  public IcebergRestCatalogApiService provideIcebergRestCatalogApiService() {
-    return new IcebergRestCatalogApiServiceImpl();
-  }
-
-  @Produces
-  @RequestScoped
-  public AuthenticatedPolarisPrincipal provideAuthenticatedPolarisPrincipal() {
-    // FIXME OIDC
-    PrincipalEntity principalEntity = new PrincipalEntity(null);
-    return new AuthenticatedPolarisPrincipal(principalEntity, Set.of());
   }
 }

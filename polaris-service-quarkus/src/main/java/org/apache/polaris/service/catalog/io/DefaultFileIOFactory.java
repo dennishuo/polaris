@@ -18,12 +18,16 @@
  */
 package org.apache.polaris.service.catalog.io;
 
+import io.quarkus.arc.properties.IfBuildProperty;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.io.FileIO;
 
 /** A simple FileIOFactory implementation that defers all the work to the Iceberg SDK */
+@ApplicationScoped
+@IfBuildProperty(name = "polaris.io.file-io-factory.type", stringValue = "default")
 public class DefaultFileIOFactory implements FileIOFactory {
   @Override
   public FileIO loadFileIO(String impl, Map<String, String> properties) {
