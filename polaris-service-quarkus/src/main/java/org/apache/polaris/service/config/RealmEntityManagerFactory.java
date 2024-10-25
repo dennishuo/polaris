@@ -16,60 +16,56 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.polaris.service.config;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.inject.Qualifier;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @ApplicationScoped
 public class RealmEntityManagerFactory {
 
-    private final static Logger LOGGER = LoggerFactory.getLogger(RealmEntityManagerFactory.class.getName());
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(RealmEntityManagerFactory.class.getName());
 
-    // TODO add qualifier
-    @Inject
-    private MetaStoreManagerFactory metaStoreManagerFactory;
+  // TODO add qualifier
+  @Inject private MetaStoreManagerFactory metaStoreManagerFactory;
 
-    // Key: realmIdentifier
-    private final Map<String, PolarisEntityManager> cachedEntityManagers = new HashMap<>();
+  // Key: realmIdentifier
+  private final Map<String, PolarisEntityManager> cachedEntityManagers = new HashMap<>();
 
-    // Subclasses for test injection.
-    protected RealmEntityManagerFactory() {
-        this.metaStoreManagerFactory = null;
+  // Subclasses for test injection.
+  protected RealmEntityManagerFactory() {
+    this.metaStoreManagerFactory = null;
+  }
+
+  public RealmEntityManagerFactory(MetaStoreManagerFactory metaStoreManagerFactory) {
+    this.metaStoreManagerFactory = metaStoreManagerFactory;
+  }
+
+  public PolarisEntityManager getOrCreateEntityManager(RealmContext context) {
+    String realm = context.getRealmIdentifier();
+
+    LOGGER.debug("Looking up PolarisEntityManager for realm {}", realm);
+    PolarisEntityManager entityManagerInstance = cachedEntityManagers.get(realm);
+    if (entityManagerInstance == null) {
+      LOGGER.info("Initializing new PolarisEntityManager for realm " + realm);
+
+      // TODO remove Discoverable here
+      entityManagerInstance =
+          new PolarisEntityManager(
+              metaStoreManagerFactory.getOrCreateMetaStoreManager(context),
+              metaStoreManagerFactory.getOrCreateSessionSupplier(context),
+              metaStoreManagerFactory.getOrCreateStorageCredentialCache(context));
+
+      cachedEntityManagers.put(realm, entityManagerInstance);
     }
-
-    public RealmEntityManagerFactory(MetaStoreManagerFactory metaStoreManagerFactory) {
-        this.metaStoreManagerFactory = metaStoreManagerFactory;
-    }
-
-    public PolarisEntityManager getOrCreateEntityManager(RealmContext context) {
-        String realm = context.getRealmIdentifier();
-
-        LOGGER.debug("Looking up PolarisEntityManager for realm {}", realm);
-        PolarisEntityManager entityManagerInstance = cachedEntityManagers.get(realm);
-        if (entityManagerInstance == null) {
-            LOGGER.info("Initializing new PolarisEntityManager for realm " + realm);
-
-            // TODO remove Discoverable here
-            entityManagerInstance =
-                    new PolarisEntityManager(
-                            metaStoreManagerFactory.getOrCreateMetaStoreManager(context),
-                            metaStoreManagerFactory.getOrCreateSessionSupplier(context),
-                            metaStoreManagerFactory.getOrCreateStorageCredentialCache(context));
-
-            cachedEntityManagers.put(realm, entityManagerInstance);
-        }
-        return entityManagerInstance;
-    }
-
+    return entityManagerInstance;
+  }
 }

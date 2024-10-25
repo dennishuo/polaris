@@ -16,14 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.task;
+package org.apache.polaris.service.catalog.io;
 
-import org.apache.polaris.core.context.CallContext;
+import java.util.Map;
+import org.apache.iceberg.io.FileIO;
 
-/**
- * Execute a task asynchronously with a provided context. The context must be cloned so that callers
- * can close their own context and closables
- */
-public interface TaskExecutor {
-  void addTaskHandlerContext(long taskEntityId, CallContext callContext);
+/** Interface for providing a way to construct FileIO objects, such as for reading/writing S3. */
+public interface FileIOFactory {
+  FileIO loadFileIO(String impl, Map<String, String> properties);
 }

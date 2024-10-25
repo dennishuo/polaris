@@ -22,8 +22,7 @@ import org.apache.polaris.core.entity.TaskEntity;
 
 public interface TaskHandler {
 
-    boolean canHandleTask(TaskEntity task);
+  boolean canHandleTask(TaskEntity task);
 
-    boolean handleTask(TaskEntity task);
-
+  boolean handleTask(TaskEntity task);
 }

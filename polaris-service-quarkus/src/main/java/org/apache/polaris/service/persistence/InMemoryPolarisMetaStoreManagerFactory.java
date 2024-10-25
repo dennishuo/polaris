@@ -19,66 +19,65 @@
 package org.apache.polaris.service.persistence;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import org.apache.polaris.core.PolarisDiagnostics;
-import org.apache.polaris.core.context.RealmContext;
-import org.apache.polaris.core.persistence.*;
-
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
+import org.apache.polaris.core.PolarisDiagnostics;
+import org.apache.polaris.core.context.RealmContext;
+import org.apache.polaris.core.persistence.*;
 
 @ApplicationScoped
-public class InMemoryPolarisMetaStoreManagerFactory extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
+public class InMemoryPolarisMetaStoreManagerFactory
+    extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
 
-    final Set<String> bootstrappedRealms = new HashSet<>();
+  final Set<String> bootstrappedRealms = new HashSet<>();
 
-    @Override
-    protected PolarisTreeMapStore createBackingStore(PolarisDiagnostics diagnostics) {
-        return new PolarisTreeMapStore(diagnostics);
+  @Override
+  protected PolarisTreeMapStore createBackingStore(PolarisDiagnostics diagnostics) {
+    return new PolarisTreeMapStore(diagnostics);
+  }
+
+  @Override
+  protected PolarisMetaStoreSession createMetaStoreSession(
+      PolarisTreeMapStore store, RealmContext realmContext) {
+    return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegration);
+  }
+
+  @Override
+  public synchronized PolarisMetaStoreManager getOrCreateMetaStoreManager(
+      RealmContext realmContext) {
+    String realmId = realmContext.getRealmIdentifier();
+    if (!bootstrappedRealms.contains(realmId)) {
+      bootstrapRealmAndPrintCredentials(realmId);
     }
+    return super.getOrCreateMetaStoreManager(realmContext);
+  }
 
-    @Override
-    protected PolarisMetaStoreSession createMetaStoreSession(
-            PolarisTreeMapStore store, RealmContext realmContext) {
-        return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegration);
+  @Override
+  public synchronized Supplier<PolarisMetaStoreSession> getOrCreateSessionSupplier(
+      RealmContext realmContext) {
+    String realmId = realmContext.getRealmIdentifier();
+    if (!bootstrappedRealms.contains(realmId)) {
+      bootstrapRealmAndPrintCredentials(realmId);
     }
+    return super.getOrCreateSessionSupplier(realmContext);
+  }
 
-    @Override
-    public synchronized PolarisMetaStoreManager getOrCreateMetaStoreManager(
-            RealmContext realmContext) {
-        String realmId = realmContext.getRealmIdentifier();
-        if (!bootstrappedRealms.contains(realmId)) {
-            bootstrapRealmAndPrintCredentials(realmId);
-        }
-        return super.getOrCreateMetaStoreManager(realmContext);
-    }
+  private void bootstrapRealmAndPrintCredentials(String realmId) {
+    Map<String, PolarisMetaStoreManager.PrincipalSecretsResult> results =
+        this.bootstrapRealms(Collections.singletonList(realmId));
+    bootstrappedRealms.add(realmId);
 
-    @Override
-    public synchronized Supplier<PolarisMetaStoreSession> getOrCreateSessionSupplier(
-            RealmContext realmContext) {
-        String realmId = realmContext.getRealmIdentifier();
-        if (!bootstrappedRealms.contains(realmId)) {
-            bootstrapRealmAndPrintCredentials(realmId);
-        }
-        return super.getOrCreateSessionSupplier(realmContext);
-    }
+    PolarisMetaStoreManager.PrincipalSecretsResult principalSecrets = results.get(realmId);
 
-    private void bootstrapRealmAndPrintCredentials(String realmId) {
-        Map<String, PolarisMetaStoreManager.PrincipalSecretsResult> results =
-                this.bootstrapRealms(Collections.singletonList(realmId));
-        bootstrappedRealms.add(realmId);
-
-        PolarisMetaStoreManager.PrincipalSecretsResult principalSecrets = results.get(realmId);
-
-        String msg =
-                String.format(
-                        "realm: %1s root principal credentials: %2s:%3s",
-                        realmId,
-                        principalSecrets.getPrincipalSecrets().getPrincipalClientId(),
-                        principalSecrets.getPrincipalSecrets().getMainSecret());
-        System.out.println(msg);
-    }
-
+    String msg =
+        String.format(
+            "realm: %1s root principal credentials: %2s:%3s",
+            realmId,
+            principalSecrets.getPrincipalSecrets().getPrincipalClientId(),
+            principalSecrets.getPrincipalSecrets().getMainSecret());
+    System.out.println(msg);
+  }
 }

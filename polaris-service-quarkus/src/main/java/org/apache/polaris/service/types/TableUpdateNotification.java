@@ -21,9 +21,8 @@ package org.apache.polaris.service.types;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import io.swagger.annotations.ApiModelProperty;
-import org.apache.iceberg.TableMetadata;
-
 import java.util.Objects;
+import org.apache.iceberg.TableMetadata;
 
 public class TableUpdateNotification {
 

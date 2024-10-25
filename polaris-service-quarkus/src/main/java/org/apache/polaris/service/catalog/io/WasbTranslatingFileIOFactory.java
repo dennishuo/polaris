@@ -16,14 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.task;
+package org.apache.polaris.service.catalog.io;
 
-import org.apache.polaris.core.context.CallContext;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import java.util.Map;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.io.FileIO;
 
-/**
- * Execute a task asynchronously with a provided context. The context must be cloned so that callers
- * can close their own context and closables
- */
-public interface TaskExecutor {
-  void addTaskHandlerContext(long taskEntityId, CallContext callContext);
+/** A {@link FileIOFactory} that translates WASB paths to ABFS ones */
+@JsonTypeName("wasb")
+public class WasbTranslatingFileIOFactory implements FileIOFactory {
+  @Override
+  public FileIO loadFileIO(String ioImpl, Map<String, String> properties) {
+    WasbTranslatingFileIO wrapped =
+        new WasbTranslatingFileIO(CatalogUtil.loadFileIO(ioImpl, properties, new Configuration()));
+    return wrapped;
+  }
 }

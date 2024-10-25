@@ -18,8 +18,12 @@
  */
 package org.apache.polaris.service.context;
 
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
@@ -28,73 +32,67 @@ import org.apache.polaris.core.entity.CatalogEntity;
 import org.apache.polaris.core.entity.PolarisBaseEntity;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.resolver.PolarisResolutionManifest;
+import org.apache.polaris.service.catalog.BasePolarisCatalog;
+import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.task.TaskExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
-@ApplicationScoped
+@RequestScoped
 public class PolarisCallContextCatalogFactory implements CallContextCatalogFactory {
 
-    private final static Logger LOGGER = LoggerFactory.getLogger(PolarisCallContextCatalogFactory.class);
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(PolarisCallContextCatalogFactory.class);
 
-    private static final String WAREHOUSE_LOCATION_BASEDIR =
-            "/tmp/iceberg_rest_server_warehouse_data/";
+  private static final String WAREHOUSE_LOCATION_BASEDIR =
+      "/tmp/iceberg_rest_server_warehouse_data/";
 
-    @Inject
-    private RealmEntityManagerFactory entityManagerFactory;
-    @Inject
-    private TaskExecutor taskExecutor;
-    @Inject
-    private FileIOFactory fileIOFactory;
+  @Inject RealmEntityManagerFactory entityManagerFactory;
+  @Inject TaskExecutor taskExecutor;
+  @Inject FileIOFactory fileIOFactory;
 
+  @Override
+  public Catalog createCallContextCatalog(
+      CallContext context,
+      AuthenticatedPolarisPrincipal authenticatedPrincipal,
+      final PolarisResolutionManifest resolvedManifest) {
+    PolarisBaseEntity baseCatalogEntity =
+        resolvedManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity();
+    String catalogName = baseCatalogEntity.getName();
 
-    @Override
-    public Catalog createCallContextCatalog(
-            CallContext context,
-            AuthenticatedPolarisPrincipal authenticatedPrincipal,
-            final PolarisResolutionManifest resolvedManifest) {
-        PolarisBaseEntity baseCatalogEntity =
-                resolvedManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity();
-        String catalogName = baseCatalogEntity.getName();
+    String realm = context.getRealmContext().getRealmIdentifier();
+    String catalogKey = realm + "/" + catalogName;
+    LOGGER.info("Initializing new BasePolarisCatalog for key: {}", catalogKey);
 
-        String realm = context.getRealmContext().getRealmIdentifier();
-        String catalogKey = realm + "/" + catalogName;
-        LOGGER.info("Initializing new BasePolarisCatalog for key: {}", catalogKey);
+    PolarisEntityManager entityManager =
+        entityManagerFactory.getOrCreateEntityManager(context.getRealmContext());
 
-        PolarisEntityManager entityManager =
-                entityManagerFactory.getOrCreateEntityManager(context.getRealmContext());
+    BasePolarisCatalog catalogInstance =
+        new BasePolarisCatalog(
+            entityManager,
+            context,
+            resolvedManifest,
+            authenticatedPrincipal,
+            taskExecutor,
+            fileIOFactory);
 
-        BasePolarisCatalog catalogInstance =
-                new BasePolarisCatalog(
-                        entityManager,
-                        context,
-                        resolvedManifest,
-                        authenticatedPrincipal,
-                        taskExecutor,
-                        fileIOFactory);
+    context.contextVariables().put(CallContext.REQUEST_PATH_CATALOG_INSTANCE_KEY, catalogInstance);
 
-        context.contextVariables().put(CallContext.REQUEST_PATH_CATALOG_INSTANCE_KEY, catalogInstance);
+    CatalogEntity catalog = CatalogEntity.of(baseCatalogEntity);
+    Map<String, String> catalogProperties = new HashMap<>(catalog.getPropertiesAsMap());
+    String defaultBaseLocation = catalog.getDefaultBaseLocation();
+    LOGGER.info("Looked up defaultBaseLocation {} for catalog {}", defaultBaseLocation, catalogKey);
+    catalogProperties.put(
+        CatalogProperties.WAREHOUSE_LOCATION,
+        Objects.requireNonNullElseGet(
+            defaultBaseLocation,
+            () -> Paths.get(WAREHOUSE_LOCATION_BASEDIR, catalogKey).toString()));
 
-        CatalogEntity catalog = CatalogEntity.of(baseCatalogEntity);
-        Map<String, String> catalogProperties = new HashMap<>(catalog.getPropertiesAsMap());
-        String defaultBaseLocation = catalog.getDefaultBaseLocation();
-        LOGGER.info("Looked up defaultBaseLocation {} for catalog {}", defaultBaseLocation, catalogKey);
-        catalogProperties.put(
-                CatalogProperties.WAREHOUSE_LOCATION,
-                Objects.requireNonNullElseGet(
-                        defaultBaseLocation,
-                        () -> Paths.get(WAREHOUSE_LOCATION_BASEDIR, catalogKey).toString()));
+    // TODO: The initialize properties might need to take more from CallContext and the
+    // CatalogEntity.
+    catalogInstance.initialize(catalogName, catalogProperties);
 
-        // TODO: The initialize properties might need to take more from CallContext and the
-        // CatalogEntity.
-        catalogInstance.initialize(catalogName, catalogProperties);
-
-        return catalogInstance;
-    }
-
+    return catalogInstance;
+  }
 }

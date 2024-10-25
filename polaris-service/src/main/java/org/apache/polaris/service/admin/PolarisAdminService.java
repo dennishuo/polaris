@@ -18,6 +18,7 @@
  */
 package org.apache.polaris.service.admin;
 
+import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -107,6 +108,7 @@ public class PolarisAdminService {
   // Initialized in the authorize methods.
   private PolarisResolutionManifest resolutionManifest = null;
 
+  @Inject
   public PolarisAdminService(
       CallContext callContext,
       PolarisEntityManager entityManager,

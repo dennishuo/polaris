@@ -16,14 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.task;
+package org.apache.polaris.service.catalog;
 
-import org.apache.polaris.core.context.CallContext;
+import java.util.Map;
+import java.util.Set;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.polaris.core.storage.PolarisStorageActions;
 
 /**
- * Execute a task asynchronously with a provided context. The context must be cloned so that callers
- * can close their own context and closables
+ * Adds support for credential vending for (typically) {@link org.apache.iceberg.TableOperations} to
+ * fetch access credentials that are inserted into the {@link
+ * org.apache.iceberg.rest.responses.LoadTableResponse#config()} property. See the
+ * rest-catalog-open-api.yaml spec for details on the expected format of vended credential
+ * configuration.
  */
-public interface TaskExecutor {
-  void addTaskHandlerContext(long taskEntityId, CallContext callContext);
+public interface SupportsCredentialDelegation {
+  Map<String, String> getCredentialConfig(
+      TableIdentifier tableIdentifier,
+      TableMetadata tableMetadata,
+      Set<PolarisStorageActions> storageActions);
 }

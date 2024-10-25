@@ -16,14 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.task;
+package org.apache.polaris.service.catalog.io;
 
-import org.apache.polaris.core.context.CallContext;
+import java.util.Map;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.io.FileIO;
 
-/**
- * Execute a task asynchronously with a provided context. The context must be cloned so that callers
- * can close their own context and closables
- */
-public interface TaskExecutor {
-  void addTaskHandlerContext(long taskEntityId, CallContext callContext);
+/** A simple FileIOFactory implementation that defers all the work to the Iceberg SDK */
+public class DefaultFileIOFactory implements FileIOFactory {
+  @Override
+  public FileIO loadFileIO(String impl, Map<String, String> properties) {
+    return CatalogUtil.loadFileIO(impl, properties, new Configuration());
+  }
 }

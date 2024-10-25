@@ -16,14 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.task;
+package org.apache.polaris.service.config;
 
-import org.apache.polaris.core.context.CallContext;
+import jakarta.annotation.Nullable;
+import java.util.Map;
+import org.apache.polaris.core.PolarisCallContext;
+import org.apache.polaris.core.PolarisConfigurationStore;
 
-/**
- * Execute a task asynchronously with a provided context. The context must be cloned so that callers
- * can close their own context and closables
- */
-public interface TaskExecutor {
-  void addTaskHandlerContext(long taskEntityId, CallContext callContext);
+public class DefaultConfigurationStore implements PolarisConfigurationStore {
+  private final Map<String, Object> properties;
+
+  public DefaultConfigurationStore(Map<String, Object> properties) {
+    this.properties = properties;
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public <T> @Nullable T getConfiguration(PolarisCallContext ctx, String configName) {
+    return (T) properties.get(configName);
+  }
 }

@@ -16,14 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.task;
+package org.apache.polaris.service.catalog;
 
-import org.apache.polaris.core.context.CallContext;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.polaris.service.types.NotificationRequest;
 
-/**
- * Execute a task asynchronously with a provided context. The context must be cloned so that callers
- * can close their own context and closables
- */
-public interface TaskExecutor {
-  void addTaskHandlerContext(long taskEntityId, CallContext callContext);
+public interface SupportsNotifications {
+
+  boolean sendNotification(TableIdentifier table, NotificationRequest notificationRequest);
 }
