@@ -20,12 +20,17 @@ package org.apache.polaris.service.storage;
 
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.auth.http.HttpTransportFactory;
+import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.ServiceOptions;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
@@ -39,19 +44,58 @@ import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.core.storage.aws.AwsCredentialsStorageIntegration;
 import org.apache.polaris.core.storage.azure.AzureCredentialsStorageIntegration;
 import org.apache.polaris.core.storage.gcp.GcpCredentialsStorageIntegration;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
 
 @ApplicationScoped
 public class PolarisStorageIntegrationProviderImpl implements PolarisStorageIntegrationProvider {
+
+  private static final Logger LOG =
+      LoggerFactory.getLogger(PolarisStorageIntegrationProviderImpl.class);
 
   private final Supplier<StsClient> stsClientSupplier;
   private final Supplier<GoogleCredentials> gcpCredsProvider;
 
   @Inject
   public PolarisStorageIntegrationProviderImpl(
-      Supplier<StsClient> stsClientSupplier, Supplier<GoogleCredentials> gcpCredsProvider) {
-    this.stsClientSupplier = stsClientSupplier;
-    this.gcpCredsProvider = gcpCredsProvider;
+      @ConfigProperty(name = "polaris.storage.aws.awsAccessKey") String awsAccessKey,
+      @ConfigProperty(name = "polaris.storage.aws.awsSecretKey") String awsSecretKey,
+      @ConfigProperty(name = "polaris.storage.gcp.token") String gcpAccessToken,
+      @ConfigProperty(name = "polaris.storage.gcp.lifespan") Duration lifespan) {
+    // TODO clean up this constructor
+    this.stsClientSupplier =
+        () -> {
+          StsClientBuilder stsClientBuilder = StsClient.builder();
+          if (!awsAccessKey.isBlank() && !awsSecretKey.isBlank()) {
+            LOG.warn("Using hard-coded AWS credentials - this is not recommended for production");
+            StaticCredentialsProvider awsCredentialsProvider =
+                StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(awsAccessKey, awsSecretKey));
+            stsClientBuilder.credentialsProvider(awsCredentialsProvider);
+          }
+          return stsClientBuilder.build();
+        };
+
+    this.gcpCredsProvider =
+        () -> {
+          if (gcpAccessToken.isBlank()) {
+            try {
+              return GoogleCredentials.getApplicationDefault();
+            } catch (IOException e) {
+              throw new RuntimeException("Failed to get GCP credentials", e);
+            }
+          } else {
+            AccessToken accessToken =
+                new AccessToken(
+                    gcpAccessToken, new Date(Instant.now().plus(lifespan).toEpochMilli()));
+            return GoogleCredentials.create(accessToken);
+          }
+        };
   }
 
   @Override

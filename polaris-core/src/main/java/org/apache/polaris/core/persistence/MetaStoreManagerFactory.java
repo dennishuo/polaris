@@ -43,8 +43,16 @@ public interface MetaStoreManagerFactory extends Discoverable {
 
   StorageCredentialCache getOrCreateStorageCredentialCache(RealmContext realmContext);
 
+  /**
+   * @deprecated use CDI injection instead
+   */
+  @Deprecated
   void setStorageIntegrationProvider(PolarisStorageIntegrationProvider storageIntegrationProvider);
 
+  /**
+   * @deprecated use Quarkus Micrometer extension instead
+   */
+  @Deprecated
   void setMetricRegistry(PolarisMetricRegistry metricRegistry);
 
   Map<String, PolarisMetaStoreManager.PrincipalSecretsResult> bootstrapRealms(List<String> realms);

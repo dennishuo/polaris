@@ -18,7 +18,7 @@
  */
 package org.apache.polaris.service.context;
 
-import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -39,7 +39,7 @@ import org.apache.polaris.service.task.TaskExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@RequestScoped
+@ApplicationScoped
 public class DefaultCallContextCatalogFactory implements CallContextCatalogFactory {
 
   private static final Logger LOGGER =
@@ -48,9 +48,19 @@ public class DefaultCallContextCatalogFactory implements CallContextCatalogFacto
   private static final String WAREHOUSE_LOCATION_BASEDIR =
       "/tmp/iceberg_rest_server_warehouse_data/";
 
-  @Inject RealmEntityManagerFactory entityManagerFactory;
-  @Inject TaskExecutor taskExecutor;
-  @Inject FileIOFactory fileIOFactory;
+  private final RealmEntityManagerFactory entityManagerFactory;
+  private final TaskExecutor taskExecutor;
+  private final FileIOFactory fileIOFactory;
+
+  @Inject
+  public DefaultCallContextCatalogFactory(
+      RealmEntityManagerFactory entityManagerFactory,
+      TaskExecutor taskExecutor,
+      FileIOFactory fileIOFactory) {
+    this.entityManagerFactory = entityManagerFactory;
+    this.taskExecutor = taskExecutor;
+    this.fileIOFactory = fileIOFactory;
+  }
 
   @Override
   public Catalog createCallContextCatalog(

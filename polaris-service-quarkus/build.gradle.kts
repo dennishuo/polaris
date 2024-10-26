@@ -70,6 +70,8 @@ dependencies {
   implementation("software.amazon.awssdk:iam-policy-builder")
   implementation("software.amazon.awssdk:s3")
 
+  implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
+
   compileOnly(libs.swagger.annotations)
 
   testImplementation("org.apache.iceberg:iceberg-api:${libs.versions.iceberg.get()}:tests")

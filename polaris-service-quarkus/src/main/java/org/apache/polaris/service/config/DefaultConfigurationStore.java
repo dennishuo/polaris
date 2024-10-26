@@ -19,20 +19,27 @@
 package org.apache.polaris.service.config;
 
 import jakarta.annotation.Nullable;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+@ApplicationScoped
 public class DefaultConfigurationStore implements PolarisConfigurationStore {
+
   private final Map<String, Object> properties;
 
-  public DefaultConfigurationStore(Map<String, Object> properties) {
+  public DefaultConfigurationStore(
+      @ConfigProperty(name = "polaris.config.feature-configurations")
+          Map<String, Object> properties) {
     this.properties = properties;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public <T> @Nullable T getConfiguration(PolarisCallContext ctx, String configName) {
-    return (T) properties.get(configName);
+    @SuppressWarnings("unchecked")
+    T o = (T) properties.get(configName);
+    return o;
   }
 }

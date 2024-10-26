@@ -18,6 +18,7 @@
  */
 package org.apache.polaris.service.task;
 
+import io.quarkus.runtime.Startup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.entity.PolarisBaseEntity;
@@ -34,6 +36,7 @@ import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.TaskEntity;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
+import org.apache.polaris.service.config.TaskHandlerConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,10 +46,29 @@ public class TaskExecutorImpl implements TaskExecutor {
   private static final Logger LOGGER = LoggerFactory.getLogger(TaskExecutorImpl.class);
   public static final long TASK_RETRY_DELAY = 1000;
 
-  @Inject private ExecutorService executorService;
-  @Inject private MetaStoreManagerFactory metaStoreManagerFactory;
+  private final ExecutorService executorService;
+  private final MetaStoreManagerFactory metaStoreManagerFactory;
+  private final TaskFileIOSupplier fileIOSupplier;
 
   private final List<TaskHandler> taskHandlers = new ArrayList<>();
+
+  @Inject
+  public TaskExecutorImpl(
+      TaskHandlerConfiguration taskHandlerConfiguration,
+      MetaStoreManagerFactory metaStoreManagerFactory,
+      TaskFileIOSupplier fileIOSupplier) {
+    this.executorService = taskHandlerConfiguration.executorService();
+    this.metaStoreManagerFactory = metaStoreManagerFactory;
+    this.fileIOSupplier = fileIOSupplier;
+  }
+
+  @Startup
+  public void init() {
+    addTaskHandler(new TableCleanupTaskHandler(this, metaStoreManagerFactory, fileIOSupplier));
+    addTaskHandler(
+        new ManifestFileCleanupTaskHandler(
+            fileIOSupplier, Executors.newVirtualThreadPerTaskExecutor()));
+  }
 
   /**
    * Add a {@link TaskHandler}. {@link TaskEntity}s will be tested against the {@link

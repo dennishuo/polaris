@@ -39,11 +39,6 @@ public class RealmEntityManagerFactory {
   // Key: realmIdentifier
   private final Map<String, PolarisEntityManager> cachedEntityManagers = new HashMap<>();
 
-  // Subclasses for test injection.
-  protected RealmEntityManagerFactory() {
-    this.metaStoreManagerFactory = null;
-  }
-
   @Inject
   public RealmEntityManagerFactory(MetaStoreManagerFactory metaStoreManagerFactory) {
     this.metaStoreManagerFactory = metaStoreManagerFactory;

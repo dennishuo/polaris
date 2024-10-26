@@ -22,6 +22,7 @@ import static org.apache.polaris.service.context.DefaultRealmContextResolver.par
 
 import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.util.Map;
@@ -33,8 +34,6 @@ import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreSession;
-import org.apache.polaris.service.config.ConfigurationStoreAware;
-import org.apache.polaris.service.config.HasEntityManagerFactory;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,24 +46,21 @@ import org.slf4j.LoggerFactory;
  */
 @ApplicationScoped
 @IfBuildProperty(name = "polaris.context.call-context-resolver.type", stringValue = "default")
-public class DefaultCallContextResolver
-    implements CallContextResolver, ConfigurationStoreAware, HasEntityManagerFactory {
+public class DefaultCallContextResolver implements CallContextResolver {
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultCallContextResolver.class);
 
   public static final String PRINCIPAL_PROPERTY_KEY = "principal";
   public static final String PRINCIPAL_PROPERTY_DEFAULT_VALUE = "default-principal";
 
-  private RealmEntityManagerFactory entityManagerFactory;
-  private PolarisConfigurationStore configurationStore;
+  private final RealmEntityManagerFactory entityManagerFactory;
+  private final PolarisConfigurationStore configurationStore;
 
-  /**
-   * During CallContext resolution that might depend on RealmContext, the {@code
-   * entityManagerFactory} will be used to resolve elements of the CallContext which require
-   * additional information from an underlying entity store.
-   */
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
+  @Inject
+  public DefaultCallContextResolver(
+      RealmEntityManagerFactory entityManagerFactory,
+      PolarisConfigurationStore configurationStore) {
     this.entityManagerFactory = entityManagerFactory;
+    this.configurationStore = configurationStore;
   }
 
   @Override
@@ -104,10 +100,5 @@ public class DefaultCallContextResolver
             configurationStore,
             Clock.system(ZoneId.systemDefault()));
     return CallContext.of(realmContext, polarisContext);
-  }
-
-  @Override
-  public void setConfigurationStore(PolarisConfigurationStore configurationStore) {
-    this.configurationStore = configurationStore;
   }
 }

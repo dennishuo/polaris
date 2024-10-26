@@ -21,9 +21,11 @@ package org.apache.polaris.service.context;
 import com.google.common.base.Splitter;
 import io.quarkus.arc.properties.IfBuildProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.polaris.core.context.RealmContext;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +42,13 @@ public class DefaultRealmContextResolver implements RealmContextResolver {
 
   public static final String REALM_PROPERTY_KEY = "realm";
 
-  private String defaultRealm = "default-realm";
+  private final String defaultRealm;
+
+  @Inject
+  public DefaultRealmContextResolver(
+      @ConfigProperty(name = "polaris.context.default-realm") String defaultRealm) {
+    this.defaultRealm = defaultRealm;
+  }
 
   @Override
   public RealmContext resolveRealmContext(
@@ -71,11 +79,6 @@ public class DefaultRealmContextResolver implements RealmContextResolver {
       parsedProperties.put(REALM_PROPERTY_KEY, getDefaultRealm());
     }
     return () -> parsedProperties.get(REALM_PROPERTY_KEY);
-  }
-
-  @Override
-  public void setDefaultRealm(String defaultRealm) {
-    this.defaultRealm = defaultRealm;
   }
 
   @Override

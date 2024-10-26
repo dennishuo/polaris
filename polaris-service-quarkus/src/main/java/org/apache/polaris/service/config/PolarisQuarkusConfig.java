@@ -18,22 +18,13 @@
  */
 package org.apache.polaris.service.config;
 
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Context;
-import java.io.IOException;
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
 import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
@@ -58,19 +49,8 @@ import org.apache.polaris.service.catalog.api.impl.IcebergRestCatalogApiServiceI
 import org.apache.polaris.service.catalog.api.impl.IcebergRestConfigurationApiServiceImpl;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceImpl;
 import org.apache.polaris.service.context.RealmContextResolver;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.StsClientBuilder;
 
 public class PolarisQuarkusConfig {
-
-  @Inject
-  @ConfigProperty(name = "polaris.default-realms")
-  Set<String> defaultRealms;
 
   @Produces
   public Clock clock() {
@@ -82,11 +62,6 @@ public class PolarisQuarkusConfig {
   @Produces
   public StorageCredentialCache storageCredentialCache() {
     return new StorageCredentialCache();
-  }
-
-  @Produces
-  public PolarisConfigurationStore polarisConfigurationStore() {
-    return new DefaultConfigurationStore(new HashMap<>());
   }
 
   @Produces
@@ -179,56 +154,5 @@ public class PolarisQuarkusConfig {
     // FIXME OIDC
     PrincipalEntity principalEntity = new PrincipalEntity(null);
     return new AuthenticatedPolarisPrincipal(principalEntity, Set.of());
-  }
-
-  // Required by PolarisStorageIntegrationProviderImpl
-  // FIXME refactor this
-
-  @Produces
-  public AwsCredentialsProvider awsCredentialsProvider(
-      @ConfigProperty(name = "polaris.storage.aws.awsAccessKey") String awsAccessKey,
-      @ConfigProperty(name = "polaris.storage.aws.awsSecretKey") String awsSecretKey) {
-    // FIXME configuration
-    // FIXME optional bean
-    if (!awsAccessKey.isBlank() && !awsSecretKey.isBlank()) {
-      LoggerFactory.getLogger(PolarisQuarkusConfig.class)
-          .warn("Using hard-coded AWS credentials - this is not recommended for production");
-      return StaticCredentialsProvider.create(
-          AwsBasicCredentials.create(awsAccessKey, awsSecretKey));
-    }
-    return null;
-  }
-
-  @Produces
-  public Supplier<StsClient> stsClientSupplier(AwsCredentialsProvider awsCredentialsProvider) {
-    return () -> {
-      StsClientBuilder stsClientBuilder = StsClient.builder();
-      if (awsCredentialsProvider != null) {
-        stsClientBuilder.credentialsProvider(awsCredentialsProvider);
-      }
-      return stsClientBuilder.build();
-    };
-  }
-
-  @Produces
-  public Supplier<GoogleCredentials> gcpCredentialsSupplier(
-      @ConfigProperty(name = "polaris.storage.gcp.token") String gcpAccessToken,
-      @ConfigProperty(name = "polaris.storage.gcp.lifespan") Duration lifespan) {
-    // FIXME configuration
-    // FIXME optional bean
-    return () -> {
-      AccessToken accessToken =
-          new AccessToken(gcpAccessToken, new Date(Instant.now().plus(lifespan).toEpochMilli()));
-      return Optional.ofNullable(accessToken)
-          .map(GoogleCredentials::create)
-          .orElseGet(
-              () -> {
-                try {
-                  return GoogleCredentials.getApplicationDefault();
-                } catch (IOException e) {
-                  throw new RuntimeException("Failed to get GCP credentials", e);
-                }
-              });
-    };
   }
 }
