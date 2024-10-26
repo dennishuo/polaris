@@ -72,6 +72,7 @@ import org.apache.polaris.service.types.NotificationRequest;
  */
 @RequestScoped
 @Vetoed // FIXME ambiguous dependencies
+// FIXME split in 2 clases each implementing one of the interfaces
 public class IcebergCatalogAdapter
     implements IcebergRestCatalogApiService, IcebergRestConfigurationApiService {
 

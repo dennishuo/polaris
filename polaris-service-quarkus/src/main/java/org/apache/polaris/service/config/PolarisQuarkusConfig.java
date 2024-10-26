@@ -139,12 +139,16 @@ public class PolarisQuarkusConfig {
   @Produces
   @RequestScoped
   public IcebergRestConfigurationApiService icebergRestConfigurationApiService() {
+    // FIXME replace with IcebergCatalogAdapter
+    // IcebergRestConfigurationApiServiceImpl is just a placeholder implementation
     return new IcebergRestConfigurationApiServiceImpl();
   }
 
   @Produces
   @RequestScoped
   public IcebergRestCatalogApiService icebergRestCatalogApiService() {
+    // FIXME replace with IcebergCatalogAdapter
+    // IcebergRestCatalogApiServiceImpl is just a placeholder implementation
     return new IcebergRestCatalogApiServiceImpl();
   }
 
