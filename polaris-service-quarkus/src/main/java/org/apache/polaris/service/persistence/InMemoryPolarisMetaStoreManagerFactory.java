@@ -19,6 +19,7 @@
 package org.apache.polaris.service.persistence;
 
 import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.runtime.Startup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Collections;
@@ -30,18 +31,29 @@ import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.*;
 import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
+import org.apache.polaris.service.context.RealmContextResolver;
 
 @ApplicationScoped
 @IfBuildProperty(name = "polaris.persistence.metastore-manager.type", stringValue = "in-memory")
 public class InMemoryPolarisMetaStoreManagerFactory
     extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
 
-  final Set<String> bootstrappedRealms = new HashSet<>();
+  private final Set<String> bootstrappedRealms = new HashSet<>();
+  private final RealmContextResolver realmContextResolver;
 
   @Inject
   public InMemoryPolarisMetaStoreManagerFactory(
-      PolarisStorageIntegrationProvider storageIntegration) {
+      PolarisStorageIntegrationProvider storageIntegration,
+      RealmContextResolver realmContextResolver) {
     this.storageIntegration = storageIntegration;
+    this.realmContextResolver = realmContextResolver;
+  }
+
+  @Startup
+  public void init() {
+    // For in-memory metastore we need to bootstrap Service and Service principal at startup
+    // (for default realm)
+    getOrCreateMetaStoreManager(realmContextResolver::getDefaultRealm);
   }
 
   @Override

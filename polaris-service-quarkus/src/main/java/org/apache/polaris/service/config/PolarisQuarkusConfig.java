@@ -42,11 +42,7 @@ import org.apache.polaris.core.persistence.PolarisTreeMapMetaStoreSessionImpl;
 import org.apache.polaris.core.persistence.PolarisTreeMapStore;
 import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.core.storage.cache.StorageCredentialCache;
-import org.apache.polaris.service.catalog.api.IcebergRestCatalogApiService;
-import org.apache.polaris.service.catalog.api.IcebergRestConfigurationApiService;
 import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
-import org.apache.polaris.service.catalog.api.impl.IcebergRestCatalogApiServiceImpl;
-import org.apache.polaris.service.catalog.api.impl.IcebergRestConfigurationApiServiceImpl;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceImpl;
 import org.apache.polaris.service.context.RealmContextResolver;
 
@@ -133,23 +129,8 @@ public class PolarisQuarkusConfig {
   @Produces
   @RequestScoped
   public IcebergRestOAuth2ApiService icebergRestOAuth2ApiService() {
+    // FIXME OIDC
     return new IcebergRestOAuth2ApiServiceImpl();
-  }
-
-  @Produces
-  @RequestScoped
-  public IcebergRestConfigurationApiService icebergRestConfigurationApiService() {
-    // FIXME replace with IcebergCatalogAdapter
-    // IcebergRestConfigurationApiServiceImpl is just a placeholder implementation
-    return new IcebergRestConfigurationApiServiceImpl();
-  }
-
-  @Produces
-  @RequestScoped
-  public IcebergRestCatalogApiService icebergRestCatalogApiService() {
-    // FIXME replace with IcebergCatalogAdapter
-    // IcebergRestCatalogApiServiceImpl is just a placeholder implementation
-    return new IcebergRestCatalogApiServiceImpl();
   }
 
   @Produces

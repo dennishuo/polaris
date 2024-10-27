@@ -28,11 +28,42 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NotAuthorizedException;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfiguration;
-import org.apache.polaris.core.admin.model.*;
+import org.apache.polaris.core.admin.model.AddGrantRequest;
+import org.apache.polaris.core.admin.model.Catalog;
+import org.apache.polaris.core.admin.model.CatalogGrant;
+import org.apache.polaris.core.admin.model.CatalogRole;
+import org.apache.polaris.core.admin.model.CatalogRoles;
+import org.apache.polaris.core.admin.model.Catalogs;
+import org.apache.polaris.core.admin.model.CreateCatalogRequest;
+import org.apache.polaris.core.admin.model.CreateCatalogRoleRequest;
+import org.apache.polaris.core.admin.model.CreatePrincipalRequest;
+import org.apache.polaris.core.admin.model.CreatePrincipalRoleRequest;
+import org.apache.polaris.core.admin.model.GrantCatalogRoleRequest;
+import org.apache.polaris.core.admin.model.GrantPrincipalRoleRequest;
+import org.apache.polaris.core.admin.model.GrantResource;
+import org.apache.polaris.core.admin.model.GrantResources;
+import org.apache.polaris.core.admin.model.NamespaceGrant;
+import org.apache.polaris.core.admin.model.Principal;
+import org.apache.polaris.core.admin.model.PrincipalRole;
+import org.apache.polaris.core.admin.model.PrincipalRoles;
+import org.apache.polaris.core.admin.model.PrincipalWithCredentials;
+import org.apache.polaris.core.admin.model.Principals;
+import org.apache.polaris.core.admin.model.RevokeGrantRequest;
+import org.apache.polaris.core.admin.model.StorageConfigInfo;
+import org.apache.polaris.core.admin.model.TableGrant;
+import org.apache.polaris.core.admin.model.UpdateCatalogRequest;
+import org.apache.polaris.core.admin.model.UpdateCatalogRoleRequest;
+import org.apache.polaris.core.admin.model.UpdatePrincipalRequest;
+import org.apache.polaris.core.admin.model.UpdatePrincipalRoleRequest;
+import org.apache.polaris.core.admin.model.ViewGrant;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.context.CallContext;
-import org.apache.polaris.core.entity.*;
+import org.apache.polaris.core.entity.CatalogEntity;
+import org.apache.polaris.core.entity.CatalogRoleEntity;
+import org.apache.polaris.core.entity.PolarisPrivilege;
+import org.apache.polaris.core.entity.PrincipalEntity;
+import org.apache.polaris.core.entity.PrincipalRoleEntity;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.service.admin.api.PolarisCatalogsApiService;
 import org.apache.polaris.service.admin.api.PolarisPrincipalRolesApiService;
@@ -41,6 +72,7 @@ import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Concrete implementation of the Polaris API services */
 @ApplicationScoped
 public class PolarisServiceImpl
     implements PolarisCatalogsApiService,
@@ -48,10 +80,15 @@ public class PolarisServiceImpl
         PolarisPrincipalRolesApiService {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PolarisServiceImpl.class);
+  private final RealmEntityManagerFactory entityManagerFactory;
+  private final PolarisAuthorizer polarisAuthorizer;
 
-  @Inject RealmEntityManagerFactory entityManagerFactory;
-
-  @Inject PolarisAuthorizer polarisAuthorizer;
+  @Inject
+  public PolarisServiceImpl(
+      RealmEntityManagerFactory entityManagerFactory, PolarisAuthorizer polarisAuthorizer) {
+    this.entityManagerFactory = entityManagerFactory;
+    this.polarisAuthorizer = polarisAuthorizer;
+  }
 
   private PolarisAdminService newAdminService(SecurityContext securityContext) {
     CallContext callContext = CallContext.getCurrentContext();
@@ -63,7 +100,8 @@ public class PolarisServiceImpl
 
     PolarisEntityManager entityManager =
         entityManagerFactory.getOrCreateEntityManager(callContext.getRealmContext());
-    return new PolarisAdminService();
+    return new PolarisAdminService(
+        callContext, entityManager, authenticatedPrincipal, polarisAuthorizer);
   }
 
   /** From PolarisCatalogsApiService */
@@ -75,7 +113,7 @@ public class PolarisServiceImpl
     Catalog newCatalog =
         new CatalogEntity(adminService.createCatalog(CatalogEntity.fromCatalog(catalog)))
             .asCatalog();
-    LOGGER.info("Created new catalog " + newCatalog);
+    LOGGER.info("Created new catalog {}", newCatalog);
     return Response.status(Response.Status.CREATED).build();
   }
 
@@ -88,7 +126,10 @@ public class PolarisServiceImpl
             .getConfiguration(
                 polarisCallContext, PolarisConfiguration.SUPPORTED_CATALOG_STORAGE_TYPES);
     if (!allowedStorageTypes.contains(storageConfigInfo.getStorageType().name())) {
-      LOGGER.warn("Disallowed storage type in catalog");
+      LOGGER
+          .atWarn()
+          .addKeyValue("storageConfig", storageConfigInfo)
+          .log("Disallowed storage type in catalog");
       throw new IllegalArgumentException(
           "Unsupported storage type: " + storageConfigInfo.getStorageType());
     }
@@ -144,7 +185,7 @@ public class PolarisServiceImpl
           new PrincipalEntity.Builder(principal).setCredentialRotationRequiredState().build();
     }
     PrincipalWithCredentials createdPrincipal = adminService.createPrincipal(principal);
-    LOGGER.info("Created new principal " + createdPrincipal);
+    LOGGER.info("Created new principal {}", createdPrincipal);
     return Response.status(Response.Status.CREATED).entity(createdPrincipal).build();
   }
 
@@ -326,7 +367,7 @@ public class PolarisServiceImpl
   @Override
   public Response revokePrincipalRole(
       String principalName, String principalRoleName, SecurityContext securityContext) {
-    LOGGER.info("Revoking principalRole {} from principal {}", principalName, principalName);
+    LOGGER.info("Revoking principalRole {} from principal {}", principalRoleName, principalName);
     PolarisAdminService adminService = newAdminService(securityContext);
     adminService.revokePrincipalRole(principalName, principalRoleName);
     return Response.status(Response.Status.NO_CONTENT).build();
@@ -472,7 +513,11 @@ public class PolarisServiceImpl
           break;
         }
       default:
-        LOGGER.warn("Don't know how to handle privilege grant: {}", grantRequest);
+        LOGGER
+            .atWarn()
+            .addKeyValue("catalog", catalogName)
+            .addKeyValue("role", catalogRoleName)
+            .log("Don't know how to handle privilege grant: {}", grantRequest);
         return Response.status(Response.Status.BAD_REQUEST).build();
     }
     return Response.status(Response.Status.CREATED).build();
@@ -487,7 +532,7 @@ public class PolarisServiceImpl
       RevokeGrantRequest grantRequest,
       SecurityContext securityContext) {
     LOGGER.info(
-        "Revoling grant {} from catalogRole {} in catalog {}",
+        "Revoking grant {} from catalogRole {} in catalog {}",
         grantRequest,
         catalogRoleName,
         catalogName);
@@ -543,7 +588,12 @@ public class PolarisServiceImpl
           break;
         }
       default:
-        LOGGER.warn("Don't know how to handle privilege revocation: {}", grantRequest);
+        LOGGER
+            .atWarn()
+            .addKeyValue("catalog", catalogName)
+            .addKeyValue("role", catalogRoleName)
+            .log("Don't know how to handle privilege revocation: {}", grantRequest);
+        return Response.status(Response.Status.BAD_REQUEST).build();
     }
     return Response.status(Response.Status.CREATED).build();
   }

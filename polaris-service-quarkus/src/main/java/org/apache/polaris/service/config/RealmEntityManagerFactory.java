@@ -50,7 +50,7 @@ public class RealmEntityManagerFactory {
     LOGGER.debug("Looking up PolarisEntityManager for realm {}", realm);
     PolarisEntityManager entityManagerInstance = cachedEntityManagers.get(realm);
     if (entityManagerInstance == null) {
-      LOGGER.info("Initializing new PolarisEntityManager for realm " + realm);
+      LOGGER.info("Initializing new PolarisEntityManager for realm {}", realm);
 
       // TODO remove Discoverable here
       entityManagerInstance =

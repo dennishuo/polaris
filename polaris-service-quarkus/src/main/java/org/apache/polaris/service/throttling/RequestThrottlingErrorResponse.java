@@ -16,29 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.config;
+package org.apache.polaris.service.throttling;
 
-import jakarta.annotation.Nullable;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.polaris.core.PolarisCallContext;
-import org.apache.polaris.core.PolarisConfigurationStore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@ApplicationScoped
-public class DefaultConfigurationStore implements PolarisConfigurationStore {
-
-  private final Map<String, Object> properties;
-
-  public DefaultConfigurationStore() {
-    // FIXME
-    this.properties = new HashMap<>();
-  }
-
-  @Override
-  public <T> @Nullable T getConfiguration(PolarisCallContext ctx, String configName) {
-    @SuppressWarnings("unchecked")
-    T o = (T) properties.get(configName);
-    return o;
+/**
+ * Response object for errors caused by DoS-prevention throttling mechanisms, such as request size
+ * limits
+ */
+public record RequestThrottlingErrorResponse(
+    @JsonProperty("error_type") RequestThrottlingErrorType errorType) {
+  public enum RequestThrottlingErrorType {
+    REQUEST_TOO_LARGE,
+    ;
   }
 }

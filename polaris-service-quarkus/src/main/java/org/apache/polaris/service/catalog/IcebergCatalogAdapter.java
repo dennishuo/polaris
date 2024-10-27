@@ -23,7 +23,6 @@ import static org.apache.polaris.service.catalog.AccessDelegationMode.VENDED_CRE
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import jakarta.enterprise.context.RequestScoped;
-import jakarta.enterprise.inject.Vetoed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
@@ -71,8 +70,6 @@ import org.apache.polaris.service.types.NotificationRequest;
  * current {@link RealmContext}.
  */
 @RequestScoped
-@Vetoed // FIXME ambiguous dependencies
-// FIXME split in 2 clases each implementing one of the interfaces
 public class IcebergCatalogAdapter
     implements IcebergRestCatalogApiService, IcebergRestConfigurationApiService {
 

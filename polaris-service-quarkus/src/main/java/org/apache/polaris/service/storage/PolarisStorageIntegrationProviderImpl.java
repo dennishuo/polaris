@@ -55,7 +55,7 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 @ApplicationScoped
 public class PolarisStorageIntegrationProviderImpl implements PolarisStorageIntegrationProvider {
 
-  private static final Logger LOG =
+  private static final Logger LOGGER =
       LoggerFactory.getLogger(PolarisStorageIntegrationProviderImpl.class);
 
   private final Supplier<StsClient> stsClientSupplier;
@@ -72,7 +72,8 @@ public class PolarisStorageIntegrationProviderImpl implements PolarisStorageInte
         () -> {
           StsClientBuilder stsClientBuilder = StsClient.builder();
           if (!awsAccessKey.isBlank() && !awsSecretKey.isBlank()) {
-            LOG.warn("Using hard-coded AWS credentials - this is not recommended for production");
+            LOGGER.warn(
+                "Using hard-coded AWS credentials - this is not recommended for production");
             StaticCredentialsProvider awsCredentialsProvider =
                 StaticCredentialsProvider.create(
                     AwsBasicCredentials.create(awsAccessKey, awsSecretKey));

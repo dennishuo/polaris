@@ -18,22 +18,61 @@
  */
 package org.apache.polaris.service.admin;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import java.util.*;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.exceptions.*;
+import org.apache.iceberg.exceptions.AlreadyExistsException;
+import org.apache.iceberg.exceptions.BadRequestException;
+import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.exceptions.NoSuchViewException;
+import org.apache.iceberg.exceptions.NotFoundException;
+import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfiguration;
-import org.apache.polaris.core.admin.model.*;
+import org.apache.polaris.core.admin.model.CatalogGrant;
+import org.apache.polaris.core.admin.model.CatalogPrivilege;
+import org.apache.polaris.core.admin.model.GrantResource;
+import org.apache.polaris.core.admin.model.NamespaceGrant;
+import org.apache.polaris.core.admin.model.NamespacePrivilege;
+import org.apache.polaris.core.admin.model.PrincipalWithCredentials;
+import org.apache.polaris.core.admin.model.PrincipalWithCredentialsCredentials;
+import org.apache.polaris.core.admin.model.TableGrant;
+import org.apache.polaris.core.admin.model.TablePrivilege;
+import org.apache.polaris.core.admin.model.UpdateCatalogRequest;
+import org.apache.polaris.core.admin.model.UpdateCatalogRoleRequest;
+import org.apache.polaris.core.admin.model.UpdatePrincipalRequest;
+import org.apache.polaris.core.admin.model.UpdatePrincipalRoleRequest;
+import org.apache.polaris.core.admin.model.ViewGrant;
+import org.apache.polaris.core.admin.model.ViewPrivilege;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.auth.PolarisAuthorizableOperation;
 import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.catalog.PolarisCatalogHelpers;
 import org.apache.polaris.core.context.CallContext;
-import org.apache.polaris.core.entity.*;
+import org.apache.polaris.core.entity.CatalogEntity;
+import org.apache.polaris.core.entity.CatalogRoleEntity;
+import org.apache.polaris.core.entity.NamespaceEntity;
+import org.apache.polaris.core.entity.PolarisBaseEntity;
+import org.apache.polaris.core.entity.PolarisEntity;
+import org.apache.polaris.core.entity.PolarisEntitySubType;
+import org.apache.polaris.core.entity.PolarisEntityType;
+import org.apache.polaris.core.entity.PolarisGrantRecord;
+import org.apache.polaris.core.entity.PolarisPrincipalSecrets;
+import org.apache.polaris.core.entity.PolarisPrivilege;
+import org.apache.polaris.core.entity.PrincipalEntity;
+import org.apache.polaris.core.entity.PrincipalRoleEntity;
+import org.apache.polaris.core.entity.TableLikeEntity;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
 import org.apache.polaris.core.persistence.PolarisResolvedPathWrapper;
@@ -47,21 +86,37 @@ import org.apache.polaris.core.storage.azure.AzureStorageConfigurationInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@ApplicationScoped
+/**
+ * Just as an Iceberg Catalog represents the logical model of Iceberg business logic to manage
+ * Namespaces, Tables and Views, abstracted away from Iceberg REST objects, this class represents
+ * the logical model for managing realm-level Catalogs, Principals, Roles, and Grants.
+ *
+ * <p>Different API implementors could expose different REST, gRPC, etc., interfaces that delegate
+ * to this logical model without being tightly coupled to a single frontend protocol, and can
+ * provide different implementations of PolarisEntityManager to abstract away the implementation of
+ * the persistence layer.
+ */
 public class PolarisAdminService {
-
   private static final Logger LOGGER = LoggerFactory.getLogger(PolarisAdminService.class);
 
-  @Inject CallContext callContext;
-
-  @Inject PolarisEntityManager entityManager;
-
-  @Inject AuthenticatedPolarisPrincipal authenticatedPrincipal;
-
-  @Inject PolarisAuthorizer authorizer;
+  private final CallContext callContext;
+  private final PolarisEntityManager entityManager;
+  private final AuthenticatedPolarisPrincipal authenticatedPrincipal;
+  private final PolarisAuthorizer authorizer;
 
   // Initialized in the authorize methods.
   private PolarisResolutionManifest resolutionManifest = null;
+
+  public PolarisAdminService(
+      CallContext callContext,
+      PolarisEntityManager entityManager,
+      AuthenticatedPolarisPrincipal authenticatedPrincipal,
+      PolarisAuthorizer authorizer) {
+    this.callContext = callContext;
+    this.entityManager = entityManager;
+    this.authenticatedPrincipal = authenticatedPrincipal;
+    this.authorizer = authorizer;
+  }
 
   private PolarisCallContext getCurrentPolarisContext() {
     return callContext.getPolarisCallContext();
@@ -116,7 +171,7 @@ public class PolarisAdminService {
       PolarisAuthorizableOperation op,
       String topLevelEntityName,
       PolarisEntityType entityType,
-      String referenceCatalogName) {
+      @Nullable String referenceCatalogName) {
     resolutionManifest =
         entityManager.prepareResolutionManifest(
             callContext, authenticatedPrincipal, referenceCatalogName);
@@ -135,7 +190,10 @@ public class PolarisAdminService {
             == authenticatedPrincipal.getPrincipalEntity().getId()
         && (op.equals(PolarisAuthorizableOperation.ROTATE_CREDENTIALS)
             || op.equals(PolarisAuthorizableOperation.RESET_CREDENTIALS))) {
-      LOGGER.info("Allowing rotate own credentials");
+      LOGGER
+          .atDebug()
+          .addKeyValue("principalName", topLevelEntityName)
+          .log("Allowing rotate own credentials");
       return;
     }
     authorizer.authorizeOrThrow(
@@ -541,7 +599,7 @@ public class PolarisAdminService {
     }
   }
 
-  public CatalogEntity getCatalog(String name) {
+  public @Nonnull CatalogEntity getCatalog(String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_CATALOG;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.CATALOG);
 
@@ -601,7 +659,7 @@ public class PolarisAdminService {
     }
   }
 
-  public CatalogEntity updateCatalog(String name, UpdateCatalogRequest updateRequest) {
+  public @Nonnull CatalogEntity updateCatalog(String name, UpdateCatalogRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_CATALOG;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.CATALOG);
 
@@ -733,7 +791,7 @@ public class PolarisAdminService {
     }
   }
 
-  public PrincipalEntity getPrincipal(String name) {
+  public @Nonnull PrincipalEntity getPrincipal(String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_PRINCIPAL;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL);
 
@@ -741,7 +799,8 @@ public class PolarisAdminService {
         .orElseThrow(() -> new NotFoundException("Principal %s not found", name));
   }
 
-  public PrincipalEntity updatePrincipal(String name, UpdatePrincipalRequest updateRequest) {
+  public @Nonnull PrincipalEntity updatePrincipal(
+      String name, UpdatePrincipalRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_PRINCIPAL;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL);
 
@@ -775,7 +834,7 @@ public class PolarisAdminService {
     return returnedEntity;
   }
 
-  private PrincipalWithCredentials rotateOrResetCredentialsHelper(
+  private @Nonnull PrincipalWithCredentials rotateOrResetCredentialsHelper(
       String principalName, boolean shouldReset) {
     PrincipalEntity currentPrincipalEntity =
         findPrincipalByName(principalName)
@@ -817,14 +876,14 @@ public class PolarisAdminService {
             newSecrets.getPrincipalClientId(), newSecrets.getMainSecret()));
   }
 
-  public PrincipalWithCredentials rotateCredentials(String principalName) {
+  public @Nonnull PrincipalWithCredentials rotateCredentials(String principalName) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.ROTATE_CREDENTIALS;
     authorizeBasicTopLevelEntityOperationOrThrow(op, principalName, PolarisEntityType.PRINCIPAL);
 
     return rotateOrResetCredentialsHelper(principalName, false);
   }
 
-  public PrincipalWithCredentials resetCredentials(String principalName) {
+  public @Nonnull PrincipalWithCredentials resetCredentials(String principalName) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.RESET_CREDENTIALS;
     authorizeBasicTopLevelEntityOperationOrThrow(op, principalName, PolarisEntityType.PRINCIPAL);
 
@@ -909,7 +968,7 @@ public class PolarisAdminService {
     }
   }
 
-  public PrincipalRoleEntity getPrincipalRole(String name) {
+  public @Nonnull PrincipalRoleEntity getPrincipalRole(String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_PRINCIPAL_ROLE;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL_ROLE);
 
@@ -917,7 +976,7 @@ public class PolarisAdminService {
         .orElseThrow(() -> new NotFoundException("PrincipalRole %s not found", name));
   }
 
-  public PrincipalRoleEntity updatePrincipalRole(
+  public @Nonnull PrincipalRoleEntity updatePrincipalRole(
       String name, UpdatePrincipalRoleRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_PRINCIPAL_ROLE;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL_ROLE);
@@ -1042,7 +1101,7 @@ public class PolarisAdminService {
     }
   }
 
-  public CatalogRoleEntity getCatalogRole(String catalogName, String name) {
+  public @Nonnull CatalogRoleEntity getCatalogRole(String catalogName, String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_CATALOG_ROLE;
     authorizeBasicCatalogRoleOperationOrThrow(op, catalogName, name);
 
@@ -1050,7 +1109,7 @@ public class PolarisAdminService {
         .orElseThrow(() -> new NotFoundException("CatalogRole %s not found", name));
   }
 
-  public CatalogRoleEntity updateCatalogRole(
+  public @Nonnull CatalogRoleEntity updateCatalogRole(
       String catalogName, String name, UpdateCatalogRoleRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_CATALOG_ROLE;
     authorizeBasicCatalogRoleOperationOrThrow(op, catalogName, name);
@@ -1253,9 +1312,9 @@ public class PolarisAdminService {
    * @return list of grantees or securables matching the filter
    */
   private List<PolarisEntity> buildEntitiesFromGrantResults(
-      PolarisMetaStoreManager.LoadGrantsResult grantList,
+      @Nonnull PolarisMetaStoreManager.LoadGrantsResult grantList,
       boolean grantees,
-      Function<PolarisGrantRecord, Boolean> grantFilter) {
+      @Nullable Function<PolarisGrantRecord, Boolean> grantFilter) {
     Map<Long, PolarisBaseEntity> granteeMap = grantList.getEntitiesAsMap();
     List<PolarisEntity> toReturn = new ArrayList<>(grantList.getGrantRecords().size());
     for (PolarisGrantRecord grantRecord : grantList.getGrantRecords()) {
@@ -1628,8 +1687,8 @@ public class PolarisAdminService {
    * @param id id of the entity we are looking for
    * @return null if the entity does not exist
    */
-  private PolarisBaseEntity getOrLoadEntity(
-      Map<Long, PolarisBaseEntity> entitiesMap, long catalogId, long id) {
+  private @Nullable PolarisBaseEntity getOrLoadEntity(
+      @Nullable Map<Long, PolarisBaseEntity> entitiesMap, long catalogId, long id) {
     return (entitiesMap == null)
         ? entityManager
             .getMetaStoreManager()
