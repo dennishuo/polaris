@@ -18,20 +18,73 @@
 -->
 
 This module contains the Polaris Service powered by Quarkus (instead of Dropwizard as in `polaris-service`).
+This module contains the Polaris Service (server) 
 
-The main differences:
-* There's no need anymore to define Codehale metrics or Opentelemetry, Quarkus extension provides it "out of the box".
-* The configuration is coming from Quarkus `application.properties`. It's possible to add a another configuration source if needed.
-* The `PolarisHealthCheck` is not needed anymore, Quarkus provides it
-* The `TimedApplicationEventListener` and `@TimedApi` are replaced by Quarkus `@Timed`:
+# Main differences
+
+* Bean injection (CDI) is made using `@ApplicationScoped` annotation on class and injected in other classes using `@Inject` annotation (https://quarkus.io/guides/cdi-reference). Dropwizard injection json 
+* Codehale metrics registry and opentelemetry boilerplate (prometheus exporter included) are not needed anymore: Quarkus provides it "out of the box" (https://quarkus.io/guides/opentelemetry)
+* `PolarisHealthCheck` is not needed anymore: Quarkus provides it "out of the box" (https://quarkus.io/guides/smallrye-health)
+* `TimedApplicationEventListener` and the `@TimedApi` annotation are replaced by Quarkus (micrometer) `@Timed` annotation (https://quarkus.io/guides/telemetry-micrometer)
+* `PolarisJsonLayoutFactory` is not needed anymore: Quarkus provides it by configuration (using `quarkus.log.*` configuration)
+* `PolarisApplication` is not needed, Quarkus provide a "main" application out of the box (it's possible to provide `QuarkusApplication` for control the startup and also using `@Startup` annotation)
+* CORS boilerplate is not needed anymore: Quarkus supports it via configuration (using `quarkus.http.cors.*` configuration)
+* CLI is not part of `polaris-service` anymore, we have (will have) a dedicated module (`polaris-cli`)
+
+# Build and run
+
+To build `polaris-service-quarkus` you simply do:
 
 ```
-@Timed(value = "call", extraTags = { "region", "test" })
+./gradlew :polaris-service-quarkus:build
 ```
 
-* The bean injection is coming from Quarkus CDI (using `@Inject`) instead of injected by Dropwizard configuration. When we have several implementations of a bean, we can use the `@Default` annotation to define the default one.
-* The rate limiter should stay (Quarkus provides a rate limiter but it's way difference from our needs in Polaris)
-* The `PolarisJsonLayoutFactory` (log json layout) is not needed anymore, Quarkus log manager supports it "out of the box"
-* `PolarisApplication` is not needed anymore as we use Quarkus CDI (and eventually `@Startup` to load a bean at startup)
-* CORS classes are not needed anymore as it's managed by Quarkus
-* The CLI (like bootstrap/purge realms) should be in separated module
+The build creates ready to run package:
+* in the `build/quarkus-app` folder, you can run with `java -jar quarkus-run.jar`
+* the `build/distributions` folder contains tar/zip distributions you can extract  
+
+You can directly run Polaris service (in the build scope) using:
+
+```
+./gradlew :polaris-service-quarkus:quarkusRun
+```
+
+You can directly build a Docker image using:
+
+```
+./gradlew :polaris-service-quarkus:imageBuild
+```
+
+# Configuration
+
+The main configuration file is not the `application.properties`. The default configuration is package as part of the `polaris-service-quarkus`.
+`polaris-service-quarkus` uses several configuration sources (in this order):
+* system properties
+* environment variables
+* `.env` file in the current working directory
+* `$PWD/config/application.properties` file
+* the `application.properties` packaged in the `polaris-service-quarkus` application
+
+It means you can override some configuration property using environment variables for example.
+
+By default, `polaris-service-quarkus` uses 8181 as HTTP port (defined in the `quarkus.http.port` configuration property).
+
+You can override it with, for example if you want to use 8282 port number:
+
+```
+export QUARKUS_HTTP_PORT=8282 ; java -jar build/quarkus-app/quarkus-run.jar
+```
+
+You can find more details here: https://quarkus.io/guides/config
+
+# TODO
+
+* Use metastore qualifier to change the storage implementation at runtime (currently at build time via a property)
+* Modify `mustache.api` to use  `@Timed` instead of `@TimedApi` 
+* Complete utests/itests in `polaris-service-quarkus`
+* Remove dropwizard references (in `polaris-core` and `polaris-service-quarkus`)
+* Remove `polaris-service` and rename `polaris-service-quarkus` as `polaris-service`
+* Create `polaris-cli` module
+* Update documentation/README/...
+
+* Do we want to support existing json configuration file as configuration source ?
