@@ -247,8 +247,7 @@ public class BasePolarisCatalogTest extends CatalogTests<BasePolarisCatalog> {
   @AfterEach
   public void after() throws IOException {
     catalog().close();
-    //    metaStoreManager.purge(polarisContext);
-    //    managerFactory.purgeRealms(List.of(realmName));
+    metaStoreManager.purge(polarisContext);
   }
 
   @Override
