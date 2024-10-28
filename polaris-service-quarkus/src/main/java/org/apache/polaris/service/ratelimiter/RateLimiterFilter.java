@@ -19,26 +19,19 @@
 package org.apache.polaris.service.ratelimiter;
 
 import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
-import jakarta.servlet.annotation.WebFilter;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.ws.rs.Priorities;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.Response;
-import java.io.IOException;
+import jakarta.ws.rs.ext.Provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Request filter that returns a 429 Too Many Requests if the rate limiter says so */
-@WebFilter(filterName = "ratelimiter", urlPatterns = "/*")
-@ApplicationScoped
 @Priority(Priorities.AUTHORIZATION + 1)
-public class RateLimiterFilter implements Filter {
+@Provider
+public class RateLimiterFilter implements ContainerRequestFilter {
   private static final Logger LOGGER = LoggerFactory.getLogger(RateLimiterFilter.class);
 
   private final RateLimiter rateLimiter;
@@ -50,13 +43,10 @@ public class RateLimiterFilter implements Filter {
 
   /** Returns a 429 if the rate limiter says so. Otherwise, forwards the request along. */
   @Override
-  public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-      throws IOException, ServletException {
-    if (response instanceof HttpServletResponse servletResponse && !rateLimiter.tryAcquire()) {
-      servletResponse.setStatus(Response.Status.TOO_MANY_REQUESTS.getStatusCode());
+  public void filter(ContainerRequestContext containerRequestContext) {
+    if (!rateLimiter.tryAcquire()) {
+      containerRequestContext.abortWith(Response.status(Response.Status.TOO_MANY_REQUESTS).build());
       LOGGER.atDebug().log("Rate limiting request");
-      return;
     }
-    chain.doFilter(request, response);
   }
 }
