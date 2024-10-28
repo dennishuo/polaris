@@ -44,25 +44,30 @@ public class DefaultConfigurationStore implements PolarisConfigurationStore {
       ObjectMapper objectMapper,
       @ConfigProperty(name = "polaris.config.feature-configurations")
           Map<String, String> properties) {
-    Map<String, Object> m = new HashMap<>();
-    for (String configName : properties.keySet()) {
-      String json = properties.get(configName);
-      try {
-        JsonNode node = objectMapper.readTree(json);
-        m.put(configName, getConfigValue(node));
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException(
-            "Invalid JSON value for feature configuration: " + configName, e);
-      }
-    }
-    this.properties = Map.copyOf(m);
+    this(convertMap(objectMapper, properties));
   }
 
   public DefaultConfigurationStore(Map<String, Object> properties) {
     this.properties = Map.copyOf(properties);
   }
 
-  private static Object getConfigValue(JsonNode node) {
+  private static Map<String, Object> convertMap(
+      ObjectMapper objectMapper, Map<String, String> properties) {
+    Map<String, Object> m = new HashMap<>();
+    for (String configName : properties.keySet()) {
+      String json = properties.get(configName);
+      try {
+        JsonNode node = objectMapper.readTree(json);
+        m.put(configName, configValue(node));
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(
+            "Invalid JSON value for feature configuration: " + configName, e);
+      }
+    }
+    return m;
+  }
+
+  private static Object configValue(JsonNode node) {
     return switch (node.getNodeType()) {
       case BOOLEAN -> node.asBoolean();
       case STRING -> node.asText();
@@ -75,7 +80,7 @@ public class DefaultConfigurationStore implements PolarisConfigurationStore {
           };
       case ARRAY -> {
         List<Object> list = new ArrayList<>();
-        node.elements().forEachRemaining(n -> list.add(getConfigValue(n)));
+        node.elements().forEachRemaining(n -> list.add(configValue(n)));
         yield List.copyOf(list);
       }
       default ->
