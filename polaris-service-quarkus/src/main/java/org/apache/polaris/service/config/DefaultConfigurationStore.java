@@ -18,21 +18,64 @@
  */
 package org.apache.polaris.service.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
 public class DefaultConfigurationStore implements PolarisConfigurationStore {
 
   private final Map<String, Object> properties;
 
-  public DefaultConfigurationStore() {
-    // FIXME
-    this.properties = new HashMap<>();
+  // FIXME the whole PolarisConfigurationStore + PolarisConfiguration needs to be refactored
+  // to become a proper Quarkus configuration object
+  public DefaultConfigurationStore(
+      ObjectMapper objectMapper,
+      @ConfigProperty(name = "polaris.config.feature-configurations")
+          Map<String, String> properties) {
+    Map<String, Object> m = new HashMap<>();
+    for (String configName : properties.keySet()) {
+      String json = properties.get(configName);
+      try {
+        JsonNode node = objectMapper.readTree(json);
+        m.put(configName, getConfigValue(node));
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(
+            "Invalid JSON value for feature configuration: " + configName, e);
+      }
+    }
+    this.properties = Map.copyOf(m);
+  }
+
+  private static Object getConfigValue(JsonNode node) {
+    return switch (node.getNodeType()) {
+      case BOOLEAN -> node.asBoolean();
+      case STRING -> node.asText();
+      case NUMBER ->
+          switch (node.numberType()) {
+            case INT, LONG -> node.asLong();
+            case FLOAT, DOUBLE -> node.asDouble();
+            default ->
+                throw new IllegalArgumentException("Unsupported number type: " + node.numberType());
+          };
+      case ARRAY -> {
+        List<Object> list = new ArrayList<>();
+        node.elements().forEachRemaining(n -> list.add(getConfigValue(n)));
+        yield List.copyOf(list);
+      }
+      default ->
+          throw new IllegalArgumentException(
+              "Unsupported feature configuration JSON type: " + node.getNodeType());
+    };
   }
 
   @Override

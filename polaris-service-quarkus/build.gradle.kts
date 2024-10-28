@@ -35,7 +35,6 @@ dependencies {
   implementation("org.apache.iceberg:iceberg-aws")
 
   implementation(platform(libs.quarkus.bom))
-  implementation("io.quarkus:quarkus-config-yaml")
   implementation("io.quarkus:quarkus-logging-json")
   implementation("io.quarkus:quarkus-rest")
   implementation("io.quarkus:quarkus-rest-jackson")
