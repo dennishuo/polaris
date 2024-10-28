@@ -81,6 +81,7 @@ You can find more details here: https://quarkus.io/guides/config
 
 * Use metastore qualifier to change the storage implementation at runtime (currently at build time via a property)
 * Modify `mustache.api` to use  `@Timed` instead of `@TimedApi` 
+* Modify `CallContext` and remove all usages of ThreadLocal, replace with proper context propagation.
 * Complete utests/itests in `polaris-service-quarkus`
 * Remove dropwizard references (in `polaris-core` and `polaris-service-quarkus`)
 * Remove `polaris-service` and rename `polaris-service-quarkus` as `polaris-service`
