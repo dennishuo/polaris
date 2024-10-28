@@ -18,22 +18,19 @@
  */
 package org.apache.polaris.service.exception;
 
-import io.dropwizard.jersey.validation.JerseyViolationException;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 
-/**
- * Override of the default JerseyViolationExceptionMapper to provide an Iceberg ErrorResponse with
- * the exception details.
- */
+/** See {@code io.dropwizard.jersey.validation.JerseyViolationException} */
 @Provider
 public class IcebergJerseyViolationExceptionMapper
-    implements ExceptionMapper<JerseyViolationException> {
+    implements ExceptionMapper<ConstraintViolationException> {
   @Override
-  public Response toResponse(JerseyViolationException exception) {
+  public Response toResponse(ConstraintViolationException exception) {
     final String message = "Invalid value: " + exception.getMessage();
     ErrorResponse icebergErrorResponse =
         ErrorResponse.builder()
