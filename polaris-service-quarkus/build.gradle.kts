@@ -50,6 +50,8 @@ dependencies {
   // TODO this will removed as soon as dropwizard will be removed
   compileOnly(platform(libs.dropwizard.bom))
   compileOnly("io.dropwizard:dropwizard-core")
+  testCompileOnly(platform(libs.dropwizard.bom))
+  testCompileOnly("io.dropwizard:dropwizard-core")
 
   implementation(platform(libs.jackson.bom))
   implementation("com.fasterxml.jackson.core:jackson-annotations")
@@ -92,6 +94,12 @@ dependencies {
   testImplementation("software.amazon.awssdk:glue")
   testImplementation("software.amazon.awssdk:kms")
   testImplementation("software.amazon.awssdk:dynamodb")
+
+  testImplementation(platform(libs.junit.bom))
+  testImplementation(libs.bundles.junit.testing)
+
+  testImplementation("io.quarkus:quarkus-junit5")
+  testImplementation("io.rest-assured:rest-assured")
 }
 
 openApiGenerate {
