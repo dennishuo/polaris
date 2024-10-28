@@ -28,7 +28,6 @@ import java.time.ZoneId;
 import java.util.Map;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
-import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
@@ -54,13 +53,16 @@ public class DefaultCallContextResolver implements CallContextResolver {
 
   private final RealmEntityManagerFactory entityManagerFactory;
   private final PolarisConfigurationStore configurationStore;
+  private final PolarisDiagnostics diagServices;
 
   @Inject
   public DefaultCallContextResolver(
       RealmEntityManagerFactory entityManagerFactory,
-      PolarisConfigurationStore configurationStore) {
+      PolarisConfigurationStore configurationStore,
+      PolarisDiagnostics diagServices) {
     this.entityManagerFactory = entityManagerFactory;
     this.configurationStore = configurationStore;
+    this.diagServices = diagServices;
   }
 
   @Override
@@ -91,7 +93,7 @@ public class DefaultCallContextResolver implements CallContextResolver {
 
     PolarisEntityManager entityManager =
         entityManagerFactory.getOrCreateEntityManager(realmContext);
-    PolarisDiagnostics diagServices = new PolarisDefaultDiagServiceImpl();
+
     PolarisMetaStoreSession metaStoreSession = entityManager.newMetaStoreSession();
     PolarisCallContext polarisContext =
         new PolarisCallContext(

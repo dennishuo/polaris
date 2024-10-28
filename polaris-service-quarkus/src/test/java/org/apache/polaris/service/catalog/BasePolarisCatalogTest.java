@@ -60,7 +60,6 @@ import org.apache.iceberg.types.Types;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfiguration;
 import org.apache.polaris.core.PolarisConfigurationStore;
-import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.admin.model.AwsStorageConfigInfo;
 import org.apache.polaris.core.admin.model.StorageConfigInfo;
@@ -126,6 +125,7 @@ public class BasePolarisCatalogTest extends CatalogTests<BasePolarisCatalog> {
   @Inject MetaStoreManagerFactory managerFactory;
   @Inject PolarisConfigurationStore configurationStore;
   @Inject PolarisStorageIntegrationProvider storageIntegrationProvider;
+  @Inject PolarisDiagnostics diagServices;
 
   private BasePolarisCatalog catalog;
 
@@ -147,7 +147,6 @@ public class BasePolarisCatalogTest extends CatalogTests<BasePolarisCatalog> {
   @BeforeEach
   @SuppressWarnings("unchecked")
   public void before(TestInfo testInfo) {
-    PolarisDiagnostics diagServices = new PolarisDefaultDiagServiceImpl();
     realmName =
         "realm_%s_%s"
             .formatted(

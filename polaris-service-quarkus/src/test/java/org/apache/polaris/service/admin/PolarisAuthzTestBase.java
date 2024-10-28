@@ -41,7 +41,6 @@ import org.apache.iceberg.types.Types;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfiguration;
 import org.apache.polaris.core.PolarisConfigurationStore;
-import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.admin.model.FileStorageConfigInfo;
 import org.apache.polaris.core.admin.model.PrincipalWithCredentials;
@@ -143,6 +142,7 @@ public abstract class PolarisAuthzTestBase {
   @Inject protected MetaStoreManagerFactory managerFactory;
   @Inject protected PolarisConfigurationStore configurationStore;
   @Inject protected PolarisCallContextCatalogFactory callContextCatalogFactory;
+  @Inject protected PolarisDiagnostics diagServices;
 
   protected BasePolarisCatalog baseCatalog;
   protected PolarisAdminService adminService;
@@ -165,7 +165,6 @@ public abstract class PolarisAuthzTestBase {
 
   @BeforeEach
   public void before(TestInfo testInfo) {
-    PolarisDiagnostics diagServices = new PolarisDefaultDiagServiceImpl();
     realmName =
         "realm_%s_%s"
             .formatted(
