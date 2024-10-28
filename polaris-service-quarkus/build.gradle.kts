@@ -98,8 +98,10 @@ dependencies {
   testImplementation(platform(libs.junit.bom))
   testImplementation(libs.bundles.junit.testing)
 
+  testImplementation(platform(libs.quarkus.bom))
   testImplementation("io.quarkus:quarkus-junit5")
   testImplementation("io.quarkus:quarkus-junit5-mockito")
+  testImplementation("io.quarkus:quarkus-rest-client")
   testImplementation("io.rest-assured:rest-assured")
 }
 
