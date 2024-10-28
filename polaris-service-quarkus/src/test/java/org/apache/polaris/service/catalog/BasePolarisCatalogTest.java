@@ -129,16 +129,16 @@ public class BasePolarisCatalogTest extends CatalogTests<BasePolarisCatalog> {
 
   private BasePolarisCatalog catalog;
 
+  private String realmName;
   private PolarisMetaStoreManager metaStoreManager;
   private PolarisCallContext polarisContext;
   private PolarisAdminService adminService;
   private PolarisEntityManager entityManager;
   private AuthenticatedPolarisPrincipal authenticatedRoot;
   private PolarisEntity catalogEntity;
-  private String realmName;
 
   @BeforeAll
-  public static void setup() {
+  public static void setUpMocks() {
     PolarisStorageIntegrationProviderImpl mock =
         Mockito.mock(PolarisStorageIntegrationProviderImpl.class);
     QuarkusMock.installMockForType(mock, PolarisStorageIntegrationProviderImpl.class);

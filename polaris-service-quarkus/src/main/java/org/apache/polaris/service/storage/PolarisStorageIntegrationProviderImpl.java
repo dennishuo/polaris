@@ -68,7 +68,7 @@ public class PolarisStorageIntegrationProviderImpl implements PolarisStorageInte
       @ConfigProperty(name = "polaris.storage.gcp.token") String gcpAccessToken,
       @ConfigProperty(name = "polaris.storage.gcp.lifespan") Duration lifespan) {
     // TODO clean up this constructor
-    this.stsClientSupplier =
+    this(
         () -> {
           StsClientBuilder stsClientBuilder = StsClient.builder();
           if (!awsAccessKey.isBlank() && !awsSecretKey.isBlank()) {
@@ -80,9 +80,7 @@ public class PolarisStorageIntegrationProviderImpl implements PolarisStorageInte
             stsClientBuilder.credentialsProvider(awsCredentialsProvider);
           }
           return stsClientBuilder.build();
-        };
-
-    this.gcpCredsProvider =
+        },
         () -> {
           if (gcpAccessToken.isBlank()) {
             try {
@@ -96,7 +94,13 @@ public class PolarisStorageIntegrationProviderImpl implements PolarisStorageInte
                     gcpAccessToken, new Date(Instant.now().plus(lifespan).toEpochMilli()));
             return GoogleCredentials.create(accessToken);
           }
-        };
+        });
+  }
+
+  public PolarisStorageIntegrationProviderImpl(
+      Supplier<StsClient> stsClientSupplier, Supplier<GoogleCredentials> gcpCredsProvider) {
+    this.stsClientSupplier = stsClientSupplier;
+    this.gcpCredsProvider = gcpCredsProvider;
   }
 
   @Override
