@@ -73,15 +73,18 @@ import org.apache.polaris.service.types.NotificationRequest;
 public class IcebergCatalogAdapter
     implements IcebergRestCatalogApiService, IcebergRestConfigurationApiService {
 
+  private final CallContext callContext;
   private final CallContextCatalogFactory catalogFactory;
   private final RealmEntityManagerFactory entityManagerFactory;
   private final PolarisAuthorizer polarisAuthorizer;
 
   @Inject
   public IcebergCatalogAdapter(
+      CallContext callContext,
       CallContextCatalogFactory catalogFactory,
       RealmEntityManagerFactory entityManagerFactory,
       PolarisAuthorizer polarisAuthorizer) {
+    this.callContext = callContext;
     this.catalogFactory = catalogFactory;
     this.entityManagerFactory = entityManagerFactory;
     this.polarisAuthorizer = polarisAuthorizer;
@@ -89,7 +92,6 @@ public class IcebergCatalogAdapter
 
   private PolarisCatalogHandlerWrapper newHandlerWrapper(
       SecurityContext securityContext, String catalogName) {
-    CallContext callContext = CallContext.getCurrentContext();
     AuthenticatedPolarisPrincipal authenticatedPrincipal =
         (AuthenticatedPolarisPrincipal) securityContext.getUserPrincipal();
     if (authenticatedPrincipal == null) {

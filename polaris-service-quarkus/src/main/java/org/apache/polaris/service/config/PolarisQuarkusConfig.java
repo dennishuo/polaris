@@ -24,16 +24,13 @@ import jakarta.enterprise.inject.Produces;
 import jakarta.ws.rs.core.Context;
 import java.time.Clock;
 import java.util.HashMap;
-import java.util.Set;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
 import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
-import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
-import org.apache.polaris.core.entity.PrincipalEntity;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
@@ -44,6 +41,7 @@ import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.core.storage.cache.StorageCredentialCache;
 import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceImpl;
+import org.apache.polaris.service.context.CallContextResolver;
 import org.apache.polaris.service.context.RealmContextResolver;
 
 public class PolarisQuarkusConfig {
@@ -89,13 +87,14 @@ public class PolarisQuarkusConfig {
   @RequestScoped
   public RealmContext realmContext(
       @Context HttpServerRequest request, RealmContextResolver realmContextResolver) {
-    // TODO query params and headers
     return realmContextResolver.resolveRealmContext(
         request.absoluteURI(),
         request.method().name(),
         request.path(),
-        new HashMap<>(),
-        new HashMap<>());
+        request.params().entries().stream()
+            .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll),
+        request.headers().entries().stream()
+            .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll));
   }
 
   @Produces
@@ -110,8 +109,18 @@ public class PolarisQuarkusConfig {
 
   @Produces
   @RequestScoped
-  public CallContext callContext(RealmContext realmContext, PolarisCallContext polarisCallContext) {
-    return CallContext.of(realmContext, polarisCallContext);
+  public CallContext callContext(
+      RealmContext realmContext,
+      @Context HttpServerRequest request,
+      CallContextResolver callContextResolver) {
+    return callContextResolver.resolveCallContext(
+        realmContext,
+        request.method().name(),
+        request.path(),
+        request.params().entries().stream()
+            .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll),
+        request.headers().entries().stream()
+            .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll));
   }
 
   @Produces
@@ -131,13 +140,5 @@ public class PolarisQuarkusConfig {
   public IcebergRestOAuth2ApiService icebergRestOAuth2ApiService() {
     // FIXME OIDC
     return new IcebergRestOAuth2ApiServiceImpl();
-  }
-
-  @Produces
-  @RequestScoped
-  public AuthenticatedPolarisPrincipal authenticatedPolarisPrincipal() {
-    // FIXME OIDC
-    PrincipalEntity principalEntity = new PrincipalEntity(null);
-    return new AuthenticatedPolarisPrincipal(principalEntity, Set.of());
   }
 }
