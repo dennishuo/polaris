@@ -20,6 +20,8 @@ package org.apache.polaris.service.admin;
 
 import static org.apache.iceberg.types.Types.NestedField.required;
 
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
 import io.quarkus.test.Mock;
 import io.quarkus.test.junit.QuarkusMock;
@@ -27,6 +29,7 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.time.Clock;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -158,9 +161,10 @@ public abstract class PolarisAuthzTestBase {
 
   @BeforeAll
   public static void setUpMocks() {
-    QuarkusMock.installMockForType(
-        Mockito.mock(PolarisStorageIntegrationProviderImpl.class),
-        PolarisStorageIntegrationProviderImpl.class);
+    PolarisStorageIntegrationProviderImpl mock =
+        new PolarisStorageIntegrationProviderImpl(
+            Mockito::mock, () -> GoogleCredentials.create(new AccessToken("abc", new Date())));
+    QuarkusMock.installMockForType(mock, PolarisStorageIntegrationProviderImpl.class);
   }
 
   @BeforeEach
