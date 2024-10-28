@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +39,7 @@ public class DefaultConfigurationStore implements PolarisConfigurationStore {
 
   // FIXME the whole PolarisConfigurationStore + PolarisConfiguration needs to be refactored
   // to become a proper Quarkus configuration object
+  @Inject
   public DefaultConfigurationStore(
       ObjectMapper objectMapper,
       @ConfigProperty(name = "polaris.config.feature-configurations")
@@ -54,6 +56,10 @@ public class DefaultConfigurationStore implements PolarisConfigurationStore {
       }
     }
     this.properties = Map.copyOf(m);
+  }
+
+  public DefaultConfigurationStore(Map<String, Object> properties) {
+    this.properties = Map.copyOf(properties);
   }
 
   private static Object getConfigValue(JsonNode node) {
