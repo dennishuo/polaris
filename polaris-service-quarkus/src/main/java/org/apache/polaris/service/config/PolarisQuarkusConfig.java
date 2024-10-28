@@ -125,12 +125,17 @@ public class PolarisQuarkusConfig {
 
   @Produces
   @RequestScoped
+  public PolarisMetaStoreManager polarisMetaStoreManager(
+      MetaStoreManagerFactory factory, RealmContext realmContext) {
+    return factory.getOrCreateMetaStoreManager(realmContext);
+  }
+
+  @Produces
+  @RequestScoped
   public PolarisEntityManager polarisEntityManager(
-      MetaStoreManagerFactory factory,
-      RealmContext realmContext,
+      PolarisMetaStoreManager metaStoreManager,
       PolarisMetaStoreSession metaStoreSession,
       StorageCredentialCache storageCredentialCache) {
-    PolarisMetaStoreManager metaStoreManager = factory.getOrCreateMetaStoreManager(realmContext);
     return new PolarisEntityManager(
         metaStoreManager, () -> metaStoreSession, storageCredentialCache);
   }
