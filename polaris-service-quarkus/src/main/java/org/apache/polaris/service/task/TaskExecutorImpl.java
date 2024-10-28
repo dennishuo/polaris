@@ -19,6 +19,7 @@
 package org.apache.polaris.service.task;
 
 import io.quarkus.runtime.Startup;
+import jakarta.annotation.Nonnull;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
@@ -42,14 +43,11 @@ import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
 public class TaskExecutorImpl implements TaskExecutor {
-
   private static final Logger LOGGER = LoggerFactory.getLogger(TaskExecutorImpl.class);
   public static final long TASK_RETRY_DELAY = 1000;
-
   private final ExecutorService executorService;
   private final MetaStoreManagerFactory metaStoreManagerFactory;
   private final TaskFileIOSupplier fileIOSupplier;
-
   private final List<TaskHandler> taskHandlers = new ArrayList<>();
 
   @Inject
@@ -89,7 +87,7 @@ public class TaskExecutorImpl implements TaskExecutor {
     tryHandleTask(taskEntityId, clone, null, 1);
   }
 
-  private CompletableFuture<Void> tryHandleTask(
+  private @Nonnull CompletableFuture<Void> tryHandleTask(
       long taskEntityId, CallContext clone, Throwable e, int attempt) {
     if (attempt > 3) {
       return CompletableFuture.failedFuture(e);

@@ -20,6 +20,7 @@ package org.apache.polaris.service.persistence;
 
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.quarkus.runtime.Startup;
+import jakarta.annotation.Nonnull;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Collections;
@@ -57,13 +58,13 @@ public class InMemoryPolarisMetaStoreManagerFactory
   }
 
   @Override
-  protected PolarisTreeMapStore createBackingStore(PolarisDiagnostics diagnostics) {
+  protected PolarisTreeMapStore createBackingStore(@Nonnull PolarisDiagnostics diagnostics) {
     return new PolarisTreeMapStore(diagnostics);
   }
 
   @Override
   protected PolarisMetaStoreSession createMetaStoreSession(
-      PolarisTreeMapStore store, RealmContext realmContext) {
+      @Nonnull PolarisTreeMapStore store, @Nonnull RealmContext realmContext) {
     return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegration);
   }
 

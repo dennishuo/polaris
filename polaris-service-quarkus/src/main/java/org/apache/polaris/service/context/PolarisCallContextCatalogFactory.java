@@ -40,10 +40,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
-public class DefaultCallContextCatalogFactory implements CallContextCatalogFactory {
+public class PolarisCallContextCatalogFactory implements CallContextCatalogFactory {
 
   private static final Logger LOGGER =
-      LoggerFactory.getLogger(DefaultCallContextCatalogFactory.class);
+      LoggerFactory.getLogger(PolarisCallContextCatalogFactory.class);
 
   private static final String WAREHOUSE_LOCATION_BASEDIR =
       "/tmp/iceberg_rest_server_warehouse_data/";
@@ -53,7 +53,7 @@ public class DefaultCallContextCatalogFactory implements CallContextCatalogFacto
   private final FileIOFactory fileIOFactory;
 
   @Inject
-  public DefaultCallContextCatalogFactory(
+  public PolarisCallContextCatalogFactory(
       RealmEntityManagerFactory entityManagerFactory,
       TaskExecutor taskExecutor,
       FileIOFactory fileIOFactory) {
