@@ -44,7 +44,6 @@ dependencies {
 
   compileOnly(libs.jakarta.enterprise.cdi.api)
   compileOnly(libs.jakarta.inject.api)
-  compileOnly(libs.jakarta.servlet.api)
   compileOnly(libs.jakarta.validation.api)
   compileOnly(libs.jakarta.ws.rs.api)
 
