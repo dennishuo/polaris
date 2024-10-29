@@ -44,7 +44,7 @@ import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceIm
 import org.apache.polaris.service.context.CallContextResolver;
 import org.apache.polaris.service.context.RealmContextResolver;
 
-public class PolarisQuarkusConfig {
+public class PolarisQuarkusInfrastructure {
 
   @Produces
   public Clock clock() {
