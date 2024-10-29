@@ -25,6 +25,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
 import io.quarkus.test.Mock;
 import io.quarkus.test.junit.QuarkusMock;
+import jakarta.decorator.Decorator;
+import jakarta.decorator.Delegate;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -70,12 +72,10 @@ import org.apache.polaris.core.storage.cache.StorageCredentialCache;
 import org.apache.polaris.service.catalog.BasePolarisCatalog;
 import org.apache.polaris.service.catalog.PolarisPassthroughResolutionView;
 import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
-import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.config.DefaultConfigurationStore;
-import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.context.CallContextCatalogFactory;
 import org.apache.polaris.service.context.PolarisCallContextCatalogFactory;
 import org.apache.polaris.service.storage.PolarisStorageIntegrationProviderImpl;
-import org.apache.polaris.service.task.TaskExecutor;
 import org.assertj.core.api.Assertions;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -375,20 +375,10 @@ public abstract class PolarisAuthzTestBase {
   }
 
   @Mock
-  public static class TestPolarisCallContextCatalogFactory
-      extends PolarisCallContextCatalogFactory {
+  @Decorator
+  public static class TestPolarisCallContextCatalogFactory implements CallContextCatalogFactory {
 
-    public TestPolarisCallContextCatalogFactory() {
-      this(null, null, null);
-    }
-
-    @Inject
-    public TestPolarisCallContextCatalogFactory(
-        RealmEntityManagerFactory entityManagerFactory,
-        TaskExecutor taskExecutor,
-        FileIOFactory fileIOFactory) {
-      super(entityManagerFactory, taskExecutor, fileIOFactory);
-    }
+    @Inject @Delegate PolarisCallContextCatalogFactory delegate;
 
     @Override
     public Catalog createCallContextCatalog(
@@ -398,7 +388,8 @@ public abstract class PolarisAuthzTestBase {
       // This depends on the BasePolarisCatalog allowing calling initialize multiple times
       // to override the previous config.
       Catalog catalog =
-          super.createCallContextCatalog(context, authenticatedPolarisPrincipal, resolvedManifest);
+          delegate.createCallContextCatalog(
+              context, authenticatedPolarisPrincipal, resolvedManifest);
       catalog.initialize(
           CATALOG_NAME,
           ImmutableMap.of(
