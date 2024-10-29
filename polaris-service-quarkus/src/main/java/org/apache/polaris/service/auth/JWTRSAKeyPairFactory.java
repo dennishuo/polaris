@@ -22,6 +22,7 @@ import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.RequestScoped;
 import java.time.Duration;
 import org.apache.polaris.core.PolarisCallContext;
+import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.apache.polaris.service.config.RuntimeCandidate;
@@ -41,11 +42,11 @@ public class JWTRSAKeyPairFactory implements TokenBrokerFactory {
 
   public JWTRSAKeyPairFactory(
       RealmEntityManagerFactory realmEntityManagerFactory,
-      PolarisCallContext polarisCallContext,
+      CallContext callContext,
       KeyProvider keyProvider,
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.max-token-generation")
           Duration maxTokenGenerationInSeconds) {
-    this.polarisCallContext = polarisCallContext;
+    this.polarisCallContext = callContext.getPolarisCallContext();
     this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
     this.realmEntityManagerFactory = realmEntityManagerFactory;
     this.keyProvider = keyProvider;

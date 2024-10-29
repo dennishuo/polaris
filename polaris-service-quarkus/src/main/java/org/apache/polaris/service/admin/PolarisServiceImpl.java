@@ -91,6 +91,7 @@ public class PolarisServiceImpl
     this.callContext = callContext;
     this.entityManagerFactory = entityManagerFactory;
     this.polarisAuthorizer = polarisAuthorizer;
+    CallContext.setCurrentContext(callContext);
   }
 
   private PolarisAdminService newAdminService(SecurityContext securityContext) {

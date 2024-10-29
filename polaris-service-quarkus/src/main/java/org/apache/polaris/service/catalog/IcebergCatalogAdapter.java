@@ -88,6 +88,7 @@ public class IcebergCatalogAdapter
     this.catalogFactory = catalogFactory;
     this.entityManagerFactory = entityManagerFactory;
     this.polarisAuthorizer = polarisAuthorizer;
+    CallContext.setCurrentContext(callContext);
   }
 
   private PolarisCatalogHandlerWrapper newHandlerWrapper(

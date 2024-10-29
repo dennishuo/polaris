@@ -23,10 +23,10 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Default;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
 import jakarta.ws.rs.core.Context;
 import java.time.Clock;
 import java.util.HashMap;
-import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
 import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
@@ -35,13 +35,9 @@ import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
-import org.apache.polaris.core.persistence.PolarisEntityManager;
-import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
-import org.apache.polaris.core.persistence.PolarisMetaStoreSession;
-import org.apache.polaris.core.persistence.PolarisTreeMapMetaStoreSessionImpl;
-import org.apache.polaris.core.persistence.PolarisTreeMapStore;
-import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.core.storage.cache.StorageCredentialCache;
+import org.apache.polaris.service.admin.api.PolarisPrincipalRolesApi;
+import org.apache.polaris.service.admin.api.PolarisPrincipalRolesApiService;
 import org.apache.polaris.service.auth.Authenticator;
 import org.apache.polaris.service.auth.KeyProvider;
 import org.apache.polaris.service.auth.TokenBrokerFactory;
@@ -75,19 +71,6 @@ public class PolarisQuarkusInfrastructure {
     return new PolarisDefaultDiagServiceImpl();
   }
 
-  @Produces
-  public PolarisTreeMapStore polarisTreeMapStore(PolarisDiagnostics diagnostics) {
-    return new PolarisTreeMapStore(diagnostics);
-  }
-
-  @Produces
-  public PolarisMetaStoreSession polarisMetaStoreSession(
-      // FIXME should this return Supplier<PolarisMetaStoreSession>?
-      PolarisTreeMapStore store, PolarisStorageIntegrationProvider storageIntegrationProvider) {
-    // FIXME PolarisEclipseLinkMetaStoreSessionImpl
-    return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegrationProvider);
-  }
-
   // Polaris core beans - request scope
 
   @Produces
@@ -106,16 +89,6 @@ public class PolarisQuarkusInfrastructure {
 
   @Produces
   @RequestScoped
-  public PolarisCallContext polarisCallContext(
-      PolarisMetaStoreSession metaStore,
-      PolarisDiagnostics diagnostics,
-      PolarisConfigurationStore polarisConfigurationStore,
-      Clock clock) {
-    return new PolarisCallContext(metaStore, diagnostics, polarisConfigurationStore, clock);
-  }
-
-  @Produces
-  @RequestScoped
   public CallContext callContext(
       RealmContext realmContext,
       @Context HttpServerRequest request,
@@ -128,23 +101,6 @@ public class PolarisQuarkusInfrastructure {
             .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll),
         request.headers().entries().stream()
             .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll));
-  }
-
-  @Produces
-  @RequestScoped
-  public PolarisMetaStoreManager polarisMetaStoreManager(
-      MetaStoreManagerFactory factory, RealmContext realmContext) {
-    return factory.getOrCreateMetaStoreManager(realmContext);
-  }
-
-  @Produces
-  @RequestScoped
-  public PolarisEntityManager polarisEntityManager(
-      PolarisMetaStoreManager metaStoreManager,
-      PolarisMetaStoreSession metaStoreSession,
-      StorageCredentialCache storageCredentialCache) {
-    return new PolarisEntityManager(
-        metaStoreManager, () -> metaStoreSession, storageCredentialCache);
   }
 
   // Polaris service beans - application scoped - selected from @RuntimeCandidate-annotated beans
@@ -209,4 +165,23 @@ public class PolarisQuarkusInfrastructure {
       @RuntimeCandidate Instance<IcebergRestOAuth2ApiService> services) {
     return services.get();
   }
+
+  //  // PolarisCatalogsApi
+  //  @Produces
+  //  public PolarisCatalogsApi polarisCatalogsApi(PolarisCatalogsApiService service) {
+  //    return new PolarisCatalogsApi(service);
+  //  }
+
+  // PolarisPrincipalRolesApi
+  @Produces
+  @Singleton
+  public PolarisPrincipalRolesApi polarisPrincipalRolesApiService(
+      PolarisPrincipalRolesApiService service) {
+    return new PolarisPrincipalRolesApi(service);
+  }
+
+  // PolarisPrincipalsApi
+  // IcebergRestCatalogApi
+  // IcebergRestConfigurationApi
+  // IcebergRestOAuth2Api
 }

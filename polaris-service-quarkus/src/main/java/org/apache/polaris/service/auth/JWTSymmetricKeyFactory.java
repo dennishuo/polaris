@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.apache.polaris.core.PolarisCallContext;
+import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.apache.polaris.service.config.RuntimeCandidate;
@@ -48,7 +49,7 @@ public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
 
   public JWTSymmetricKeyFactory(
       RealmEntityManagerFactory realmEntityManagerFactory,
-      PolarisCallContext polarisCallContext,
+      CallContext callContext,
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.max-token-generation")
           Duration maxTokenGenerationInSeconds,
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.symmetric-key.secret")
@@ -56,7 +57,7 @@ public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.symmetric-key.file")
           Optional<Path> file) {
     this.realmEntityManagerFactory = realmEntityManagerFactory;
-    this.polarisCallContext = polarisCallContext;
+    this.polarisCallContext = callContext.getPolarisCallContext();
     this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
     this.secret = secret.orElse(null);
     this.file = file.orElse(null);

@@ -103,6 +103,7 @@ dependencies {
   testImplementation("io.quarkus:quarkus-junit5")
   testImplementation("io.quarkus:quarkus-junit5-mockito")
   testImplementation("io.quarkus:quarkus-rest-client")
+  testImplementation("io.quarkus:quarkus-rest-client-jackson")
   testImplementation("io.rest-assured:rest-assured")
 }
 

@@ -54,6 +54,7 @@ public class TestOAuth2ApiService implements IcebergRestOAuth2ApiService {
       RealmEntityManagerFactory entityManagerFactory, CallContext callContext) {
     this.entityManagerFactory = entityManagerFactory;
     this.callContext = callContext;
+    CallContext.setCurrentContext(callContext);
   }
 
   @Override

@@ -21,7 +21,7 @@
 dropwizard = "4.0.8"
 hadoop = "3.4.0"
 iceberg = "1.6.1"
-quarkus = "3.15.1"
+quarkus = "3.16.0.CR1"
 slf4j = "2.0.13"
 swagger = "1.6.14"
 

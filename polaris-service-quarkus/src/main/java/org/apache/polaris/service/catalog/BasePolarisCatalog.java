@@ -444,8 +444,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
           "Scheduled cleanup task {} for table {}",
           dropEntityResult.getCleanupTaskId(),
           tableIdentifier);
-      taskExecutor.addTaskHandlerContext(
-          dropEntityResult.getCleanupTaskId(), CallContext.getCurrentContext());
+      taskExecutor.addTaskHandlerContext(dropEntityResult.getCleanupTaskId(), callContext);
     }
 
     return true;

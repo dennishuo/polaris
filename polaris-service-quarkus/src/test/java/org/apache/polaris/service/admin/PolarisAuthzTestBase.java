@@ -23,10 +23,12 @@ import static org.apache.iceberg.types.Types.NestedField.required;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
-import io.quarkus.test.Mock;
 import io.quarkus.test.junit.QuarkusMock;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.decorator.Decorator;
 import jakarta.decorator.Delegate;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -85,6 +87,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
 /** Base class for shared test setup logic used by various Polaris authz-related tests. */
+@TestProfile(PolarisAuthzTestBase.Profile.class)
 public abstract class PolarisAuthzTestBase {
   protected static final String CATALOG_NAME = "polaris-catalog";
   protected static final String PRINCIPAL_NAME = "snowman";
@@ -144,7 +147,7 @@ public abstract class PolarisAuthzTestBase {
 
   @Inject protected MetaStoreManagerFactory managerFactory;
   @Inject protected PolarisConfigurationStore configurationStore;
-  @Inject protected PolarisCallContextCatalogFactory callContextCatalogFactory;
+  @Inject protected CallContextCatalogFactory callContextCatalogFactory;
   @Inject protected PolarisDiagnostics diagServices;
 
   protected BasePolarisCatalog baseCatalog;
@@ -374,7 +377,7 @@ public abstract class PolarisAuthzTestBase {
             CatalogProperties.FILE_IO_IMPL, "org.apache.iceberg.inmemory.InMemoryFileIO"));
   }
 
-  @Mock
+  @Alternative
   @Decorator
   public static class TestPolarisCallContextCatalogFactory implements CallContextCatalogFactory {
 
@@ -521,6 +524,14 @@ public abstract class PolarisAuthzTestBase {
       // Revoking only matters in case there are some multi-privilege actions being tested with
       // only granting individual privileges in isolation.
       Assertions.assertThat(revokeAction.apply(privilege)).isTrue();
+    }
+  }
+
+  public static class Profile implements QuarkusTestProfile {
+
+    @Override
+    public Set<Class<?>> getEnabledAlternatives() {
+      return Set.of(TestPolarisCallContextCatalogFactory.class);
     }
   }
 }

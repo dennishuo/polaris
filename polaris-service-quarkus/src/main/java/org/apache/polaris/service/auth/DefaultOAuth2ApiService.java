@@ -52,6 +52,7 @@ public class DefaultOAuth2ApiService implements IcebergRestOAuth2ApiService {
   public DefaultOAuth2ApiService(TokenBrokerFactory tokenBrokerFactory, CallContext callContext) {
     this.tokenBrokerFactory = tokenBrokerFactory;
     this.callContext = callContext;
+    CallContext.setCurrentContext(callContext);
   }
 
   @Override
