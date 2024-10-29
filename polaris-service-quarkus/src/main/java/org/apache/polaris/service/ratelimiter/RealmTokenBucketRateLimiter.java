@@ -18,10 +18,10 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.annotations.VisibleForTesting;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
@@ -43,15 +43,18 @@ public class RealmTokenBucketRateLimiter implements RateLimiter {
   private final long requestsPerSecond;
   private final Duration window;
   private final Map<String, RateLimiter> perRealmLimiters;
+  private final Clock clock;
 
   @VisibleForTesting
-  @JsonCreator
+  @Inject
   public RealmTokenBucketRateLimiter(
       @ConfigProperty(name = "polaris.rate-limiter.realm-token-bucket.requests-per-second")
           long requestsPerSecond,
-      @ConfigProperty(name = "polaris.rate-limiter.realm-token-bucket.window") Duration window) {
+      @ConfigProperty(name = "polaris.rate-limiter.realm-token-bucket.window") Duration window,
+      Clock clock) {
     this.requestsPerSecond = requestsPerSecond;
     this.window = window;
+    this.clock = clock;
     this.perRealmLimiters = new ConcurrentHashMap<>();
   }
 
@@ -76,12 +79,7 @@ public class RealmTokenBucketRateLimiter implements RateLimiter {
                 new TokenBucketRateLimiter(
                     requestsPerSecond,
                     Math.multiplyExact(requestsPerSecond, window.getSeconds()),
-                    getClock()))
+                    clock))
         .tryAcquire();
-  }
-
-  @VisibleForTesting
-  protected Clock getClock() {
-    return Clock.systemUTC();
   }
 }

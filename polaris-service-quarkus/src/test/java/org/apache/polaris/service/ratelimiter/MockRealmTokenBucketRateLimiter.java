@@ -18,7 +18,6 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -29,11 +28,6 @@ public class MockRealmTokenBucketRateLimiter extends RealmTokenBucketRateLimiter
   public static MutableClock CLOCK = MutableClock.of(Instant.now(), ZoneOffset.UTC);
 
   public MockRealmTokenBucketRateLimiter(long requestsPerSecond, Duration window) {
-    super(requestsPerSecond, window);
-  }
-
-  @Override
-  protected Clock getClock() {
-    return CLOCK;
+    super(requestsPerSecond, window, CLOCK);
   }
 }

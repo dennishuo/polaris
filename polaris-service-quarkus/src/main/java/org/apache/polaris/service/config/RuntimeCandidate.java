@@ -32,6 +32,6 @@ import java.lang.annotation.Target;
 /** Qualifier for candidate beans that are resolved at runtime based on configuration properties. */
 @Qualifier
 @Retention(RUNTIME)
-@Target(value = {TYPE, METHOD, FIELD, PARAMETER})
+@Target({TYPE, METHOD, FIELD, PARAMETER})
 @Documented
 public @interface RuntimeCandidate {}
