@@ -34,17 +34,12 @@ import org.apache.polaris.core.persistence.*;
 import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.service.config.RuntimeCandidate;
 import org.apache.polaris.service.context.RealmContextResolver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
 @RuntimeCandidate
 @LookupIfProperty(name = "polaris.persistence.metastore-manager.type", stringValue = "in-memory")
 public class InMemoryPolarisMetaStoreManagerFactory
     extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
-
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(InMemoryPolarisMetaStoreManagerFactory.class);
 
   private final Set<String> bootstrappedRealms = new HashSet<>();
   private final RealmContextResolver realmContextResolver;
@@ -102,10 +97,12 @@ public class InMemoryPolarisMetaStoreManagerFactory
 
     PolarisMetaStoreManager.PrincipalSecretsResult principalSecrets = results.get(realmId);
 
-    LOGGER.warn(
-        "Using IN MEMORY MetaStore: realm: {} root principal credentials: {}:{}",
-        realmId,
-        principalSecrets.getPrincipalSecrets().getPrincipalClientId(),
-        principalSecrets.getPrincipalSecrets().getMainSecret());
+    String msg =
+        String.format(
+            "realm: %1s root principal credentials: %2s:%3s",
+            realmId,
+            principalSecrets.getPrincipalSecrets().getPrincipalClientId(),
+            principalSecrets.getPrincipalSecrets().getMainSecret());
+    System.out.println(msg);
   }
 }
