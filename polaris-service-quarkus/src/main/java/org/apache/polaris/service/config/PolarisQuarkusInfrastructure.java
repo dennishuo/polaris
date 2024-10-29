@@ -20,6 +20,8 @@ package org.apache.polaris.service.config;
 
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.inject.Default;
+import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import jakarta.ws.rs.core.Context;
 import java.time.Clock;
@@ -41,8 +43,10 @@ import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.core.storage.cache.StorageCredentialCache;
 import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
 import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceImpl;
+import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.context.CallContextResolver;
 import org.apache.polaris.service.context.RealmContextResolver;
+import org.apache.polaris.service.ratelimiter.RateLimiter;
 
 public class PolarisQuarkusInfrastructure {
 
@@ -145,5 +149,40 @@ public class PolarisQuarkusInfrastructure {
   public IcebergRestOAuth2ApiService icebergRestOAuth2ApiService() {
     // FIXME OIDC
     return new IcebergRestOAuth2ApiServiceImpl();
+  }
+
+  // Polaris service beans - application scoped - selected from @RuntimeCandidate-annotated beans
+
+  @Produces
+  @Default
+  public CallContextResolver callContextResolver(
+      @RuntimeCandidate Instance<CallContextResolver> callContextResolvers) {
+    return callContextResolvers.get();
+  }
+
+  @Produces
+  @Default
+  public RealmContextResolver realmContextResolver(
+      @RuntimeCandidate Instance<RealmContextResolver> realmContextResolvers) {
+    return realmContextResolvers.get();
+  }
+
+  @Produces
+  @Default
+  public FileIOFactory fileIOFactory(@RuntimeCandidate Instance<FileIOFactory> fileIOFactories) {
+    return fileIOFactories.get();
+  }
+
+  @Produces
+  @Default
+  public MetaStoreManagerFactory metaStoreManagerFactory(
+      @RuntimeCandidate Instance<MetaStoreManagerFactory> metaStoreManagerFactories) {
+    return metaStoreManagerFactories.get();
+  }
+
+  @Produces
+  @Default
+  public RateLimiter rateLimiter(@RuntimeCandidate Instance<RateLimiter> rateLimiters) {
+    return rateLimiters.get();
   }
 }

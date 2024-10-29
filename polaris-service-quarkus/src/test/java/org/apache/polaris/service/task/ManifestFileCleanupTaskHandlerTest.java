@@ -44,12 +44,12 @@ import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.entity.AsyncTaskType;
 import org.apache.polaris.core.entity.TaskEntity;
-import org.apache.polaris.service.persistence.InMemoryPolarisMetaStoreManagerFactory;
+import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 class ManifestFileCleanupTaskHandlerTest {
-  @Inject InMemoryPolarisMetaStoreManagerFactory metaStoreManagerFactory;
+  @Inject MetaStoreManagerFactory metaStoreManagerFactory;
 
   private final RealmContext realmContext = () -> "realmName";
 

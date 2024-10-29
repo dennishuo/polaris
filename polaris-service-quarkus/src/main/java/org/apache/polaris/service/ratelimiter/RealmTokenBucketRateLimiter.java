@@ -20,7 +20,7 @@ package org.apache.polaris.service.ratelimiter;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.annotations.VisibleForTesting;
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Clock;
 import java.time.Duration;
@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
+import org.apache.polaris.service.config.RuntimeCandidate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
@@ -36,7 +37,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * own capacity.
  */
 @ApplicationScoped
-@IfBuildProperty(name = "polaris.rate-limiter.type", stringValue = "realm-token-bucket")
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.rate-limiter.type", stringValue = "realm-token-bucket")
 public class RealmTokenBucketRateLimiter implements RateLimiter {
   private final long requestsPerSecond;
   private final Duration window;

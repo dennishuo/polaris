@@ -41,7 +41,7 @@ import org.apache.polaris.core.entity.PolarisBaseEntity;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.TableLikeEntity;
 import org.apache.polaris.core.entity.TaskEntity;
-import org.apache.polaris.service.persistence.InMemoryPolarisMetaStoreManagerFactory;
+import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -49,7 +49,7 @@ import org.slf4j.LoggerFactory;
 
 @QuarkusTest
 class TableCleanupTaskHandlerTest {
-  @Inject InMemoryPolarisMetaStoreManagerFactory metaStoreManagerFactory;
+  @Inject MetaStoreManagerFactory metaStoreManagerFactory;
 
   private final RealmContext realmContext = () -> "realmName";
 

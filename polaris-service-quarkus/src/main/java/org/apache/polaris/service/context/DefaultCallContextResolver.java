@@ -20,7 +20,7 @@ package org.apache.polaris.service.context;
 
 import static org.apache.polaris.service.context.DefaultRealmContextResolver.parseBearerTokenAsKvPairs;
 
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Clock;
@@ -34,6 +34,7 @@ import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreSession;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.config.RuntimeCandidate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,8 @@ import org.slf4j.LoggerFactory;
  * <p>Example: principal:data-engineer;password:test;realm:acct123
  */
 @ApplicationScoped
-@IfBuildProperty(name = "polaris.context.call-context-resolver.type", stringValue = "default")
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.context.call-context-resolver.type", stringValue = "default")
 public class DefaultCallContextResolver implements CallContextResolver {
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultCallContextResolver.class);
 

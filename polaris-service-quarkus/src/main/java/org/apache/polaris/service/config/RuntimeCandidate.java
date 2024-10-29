@@ -16,23 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.polaris.service.catalog.io;
+package org.apache.polaris.service.config;
 
-import io.quarkus.arc.lookup.LookupIfProperty;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Map;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.iceberg.CatalogUtil;
-import org.apache.iceberg.io.FileIO;
-import org.apache.polaris.service.config.RuntimeCandidate;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/** A simple FileIOFactory implementation that defers all the work to the Iceberg SDK */
-@ApplicationScoped
-@RuntimeCandidate
-@LookupIfProperty(name = "polaris.io.file-io-factory.type", stringValue = "default")
-public class DefaultFileIOFactory implements FileIOFactory {
-  @Override
-  public FileIO loadFileIO(String impl, Map<String, String> properties) {
-    return CatalogUtil.loadFileIO(impl, properties, new Configuration());
-  }
-}
+import jakarta.inject.Qualifier;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+/** Qualifier for candidate beans that are resolved at runtime based on configuration properties. */
+@Qualifier
+@Retention(RUNTIME)
+@Target(value = {TYPE, METHOD, FIELD, PARAMETER})
+@Documented
+public @interface RuntimeCandidate {}

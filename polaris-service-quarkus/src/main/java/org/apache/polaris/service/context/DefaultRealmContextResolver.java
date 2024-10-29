@@ -19,12 +19,13 @@
 package org.apache.polaris.service.context;
 
 import com.google.common.base.Splitter;
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.polaris.core.context.RealmContext;
+import org.apache.polaris.service.config.RuntimeCandidate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +37,8 @@ import org.slf4j.LoggerFactory;
  * <p>Example: principal:data-engineer;password:test;realm:acct123
  */
 @ApplicationScoped
-@IfBuildProperty(name = "polaris.context.realm-context-resolver.type", stringValue = "default")
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.context.realm-context-resolver.type", stringValue = "default")
 public class DefaultRealmContextResolver implements RealmContextResolver {
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultRealmContextResolver.class);
 

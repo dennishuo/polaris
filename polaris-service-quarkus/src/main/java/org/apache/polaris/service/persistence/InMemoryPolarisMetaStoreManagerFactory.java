@@ -18,7 +18,7 @@
  */
 package org.apache.polaris.service.persistence;
 
-import io.quarkus.arc.properties.IfBuildProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.Nonnull;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,12 +32,14 @@ import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.persistence.*;
 import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
+import org.apache.polaris.service.config.RuntimeCandidate;
 import org.apache.polaris.service.context.RealmContextResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
-@IfBuildProperty(name = "polaris.persistence.metastore-manager.type", stringValue = "in-memory")
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.persistence.metastore-manager.type", stringValue = "in-memory")
 public class InMemoryPolarisMetaStoreManagerFactory
     extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
 
