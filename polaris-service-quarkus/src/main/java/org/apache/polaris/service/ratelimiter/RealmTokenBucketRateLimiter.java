@@ -18,7 +18,6 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -45,7 +44,6 @@ public class RealmTokenBucketRateLimiter implements RateLimiter {
   private final Map<String, RateLimiter> perRealmLimiters;
   private final Clock clock;
 
-  @VisibleForTesting
   @Inject
   public RealmTokenBucketRateLimiter(
       @ConfigProperty(name = "polaris.rate-limiter.realm-token-bucket.requests-per-second")

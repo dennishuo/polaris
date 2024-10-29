@@ -30,6 +30,7 @@ import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
 import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
+import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
@@ -41,8 +42,10 @@ import org.apache.polaris.core.persistence.PolarisTreeMapMetaStoreSessionImpl;
 import org.apache.polaris.core.persistence.PolarisTreeMapStore;
 import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
 import org.apache.polaris.core.storage.cache.StorageCredentialCache;
+import org.apache.polaris.service.auth.Authenticator;
+import org.apache.polaris.service.auth.KeyProvider;
+import org.apache.polaris.service.auth.TokenBrokerFactory;
 import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
-import org.apache.polaris.service.catalog.api.impl.IcebergRestOAuth2ApiServiceImpl;
 import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.context.CallContextResolver;
 import org.apache.polaris.service.context.RealmContextResolver;
@@ -144,13 +147,6 @@ public class PolarisQuarkusInfrastructure {
         metaStoreManager, () -> metaStoreSession, storageCredentialCache);
   }
 
-  @Produces
-  @RequestScoped
-  public IcebergRestOAuth2ApiService icebergRestOAuth2ApiService() {
-    // FIXME OIDC
-    return new IcebergRestOAuth2ApiServiceImpl();
-  }
-
   // Polaris service beans - application scoped - selected from @RuntimeCandidate-annotated beans
 
   @Produces
@@ -184,5 +180,33 @@ public class PolarisQuarkusInfrastructure {
   @Default
   public RateLimiter rateLimiter(@RuntimeCandidate Instance<RateLimiter> rateLimiters) {
     return rateLimiters.get();
+  }
+
+  @Produces
+  @Default
+  public Authenticator<String, AuthenticatedPolarisPrincipal> authenticator(
+      @RuntimeCandidate
+          Instance<Authenticator<String, AuthenticatedPolarisPrincipal>> authenticators) {
+    return authenticators.get();
+  }
+
+  @Produces
+  @Default
+  public KeyProvider keyProvider(@RuntimeCandidate Instance<KeyProvider> keyProviders) {
+    return keyProviders.get();
+  }
+
+  @Produces
+  @Default
+  public TokenBrokerFactory tokenBrokerFactory(
+      @RuntimeCandidate Instance<TokenBrokerFactory> tokenBrokerFactories) {
+    return tokenBrokerFactories.get();
+  }
+
+  @Produces
+  @Default
+  public IcebergRestOAuth2ApiService icebergRestOAuth2ApiService(
+      @RuntimeCandidate Instance<IcebergRestOAuth2ApiService> services) {
+    return services.get();
   }
 }
