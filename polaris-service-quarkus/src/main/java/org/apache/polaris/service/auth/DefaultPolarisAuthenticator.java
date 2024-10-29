@@ -36,20 +36,21 @@ public class DefaultPolarisAuthenticator extends BasePolarisAuthenticator {
 
   // Required for CDI
   public DefaultPolarisAuthenticator() {
-    this(null, null);
+    this(null, null, null);
   }
 
   @Inject
   public DefaultPolarisAuthenticator(
-      RealmEntityManagerFactory entityManagerFactory, TokenBrokerFactory tokenBrokerFactory) {
-    super(entityManagerFactory);
+      RealmEntityManagerFactory entityManagerFactory,
+      TokenBrokerFactory tokenBrokerFactory,
+      CallContext callContext) {
+    super(entityManagerFactory, callContext);
     this.tokenBrokerFactory = tokenBrokerFactory;
   }
 
   @Override
   public Optional<AuthenticatedPolarisPrincipal> authenticate(String credentials) {
-    TokenBroker handler =
-        tokenBrokerFactory.apply(CallContext.getCurrentContext().getRealmContext());
+    TokenBroker handler = tokenBrokerFactory.apply(callContext.getRealmContext());
     DecodedToken decodedToken = handler.verify(credentials);
     return getPrincipal(decodedToken);
   }

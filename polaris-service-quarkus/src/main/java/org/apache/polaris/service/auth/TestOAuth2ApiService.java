@@ -19,7 +19,7 @@
 package org.apache.polaris.service.auth;
 
 import io.quarkus.arc.lookup.LookupIfProperty;
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
@@ -40,17 +40,20 @@ import org.apache.polaris.service.types.TokenType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@ApplicationScoped
+@RequestScoped
 @RuntimeCandidate
-@LookupIfProperty(name = "polaris.authentication.oauth2-service.type", stringValue = "default")
+@LookupIfProperty(name = "polaris.authentication.oauth2-service.type", stringValue = "test")
 public class TestOAuth2ApiService implements IcebergRestOAuth2ApiService {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestOAuth2ApiService.class);
 
   private final RealmEntityManagerFactory entityManagerFactory;
+  private final CallContext callContext;
 
   @Inject
-  public TestOAuth2ApiService(RealmEntityManagerFactory entityManagerFactory) {
+  public TestOAuth2ApiService(
+      RealmEntityManagerFactory entityManagerFactory, CallContext callContext) {
     this.entityManagerFactory = entityManagerFactory;
+    this.callContext = callContext;
   }
 
   @Override
@@ -75,7 +78,7 @@ public class TestOAuth2ApiService implements IcebergRestOAuth2ApiService {
             + ";password:"
             + clientSecret
             + ";realm:"
-            + CallContext.getCurrentContext().getRealmContext().getRealmIdentifier()
+            + callContext.getRealmContext().getRealmIdentifier()
             + ";role:"
             + scope.replaceAll(BasePolarisAuthenticator.PRINCIPAL_ROLE_PREFIX, ""));
     response.put("token_type", "bearer");
@@ -86,9 +89,8 @@ public class TestOAuth2ApiService implements IcebergRestOAuth2ApiService {
 
   private String getPrincipalName(String clientId) {
     PolarisEntityManager entityManager =
-        entityManagerFactory.getOrCreateEntityManager(
-            CallContext.getCurrentContext().getRealmContext());
-    PolarisCallContext polarisCallContext = CallContext.getCurrentContext().getPolarisCallContext();
+        entityManagerFactory.getOrCreateEntityManager(callContext.getRealmContext());
+    PolarisCallContext polarisCallContext = callContext.getPolarisCallContext();
     PolarisMetaStoreManager.PrincipalSecretsResult secretsResult =
         entityManager.getMetaStoreManager().loadPrincipalSecrets(polarisCallContext, clientId);
     if (secretsResult.isSuccess()) {

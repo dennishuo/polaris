@@ -29,7 +29,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import jakarta.ws.rs.ext.Provider;
-import java.io.IOException;
 import java.security.Principal;
 import java.util.Optional;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
@@ -56,7 +55,12 @@ public class OAuthCredentialAuthFilter implements ContainerRequestFilter {
   @Inject Authenticator<String, AuthenticatedPolarisPrincipal> authenticator;
 
   @Override
-  public void filter(ContainerRequestContext requestContext) throws IOException {
+  public void filter(ContainerRequestContext requestContext) {
+
+    if (requestContext.getUriInfo().getPath().equals("/api/catalog/v1/oauth/tokens")) {
+      return;
+    }
+
     String credentials =
         getCredentials(requestContext.getHeaders().getFirst(HttpHeaders.AUTHORIZATION));
 
@@ -118,38 +122,41 @@ public class OAuthCredentialAuthFilter implements ContainerRequestFilter {
         return false;
       }
 
-      final AuthenticatedPolarisPrincipal prince = principal.get();
-      final SecurityContext securityContext = requestContext.getSecurityContext();
-      final boolean secure = securityContext != null && securityContext.isSecure();
-
-      SecurityContext securityContext1 =
-          new SecurityContext() {
-            @Override
-            public Principal getUserPrincipal() {
-              return prince;
-            }
-
-            @Override
-            public boolean isUserInRole(String role) {
-              return true; // TODO: implement role-based access control
-            }
-
-            @Override
-            public boolean isSecure() {
-              return secure;
-            }
-
-            @Override
-            public String getAuthenticationScheme() {
-              return scheme;
-            }
-          };
-      requestContext.setSecurityContext(securityContext1);
+      AuthenticatedPolarisPrincipal prince = principal.get();
+      SecurityContext securityContext = augmentSecurityContext(requestContext, scheme, prince);
+      requestContext.setSecurityContext(securityContext);
       return true;
     } catch (Exception e) {
       LOGGER.warn("Error authenticating credentials", e);
       throw new InternalServerErrorException();
     }
+  }
+
+  private static SecurityContext augmentSecurityContext(
+      ContainerRequestContext requestContext, String scheme, AuthenticatedPolarisPrincipal prince) {
+    SecurityContext securityContext = requestContext.getSecurityContext();
+    boolean secure = securityContext != null && securityContext.isSecure();
+    return new SecurityContext() {
+      @Override
+      public Principal getUserPrincipal() {
+        return prince;
+      }
+
+      @Override
+      public boolean isUserInRole(String role) {
+        return true; // TODO: implement role-based access control
+      }
+
+      @Override
+      public boolean isSecure() {
+        return secure;
+      }
+
+      @Override
+      public String getAuthenticationScheme() {
+        return scheme;
+      }
+    };
   }
 
   private RuntimeException buildUnauthorizedException(String prefix, String realm) {

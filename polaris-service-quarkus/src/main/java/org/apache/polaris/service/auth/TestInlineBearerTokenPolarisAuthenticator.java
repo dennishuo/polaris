@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.entity.PolarisPrincipalSecrets;
@@ -59,12 +58,13 @@ public class TestInlineBearerTokenPolarisAuthenticator extends BasePolarisAuthen
 
   // Required for CDI
   public TestInlineBearerTokenPolarisAuthenticator() {
-    this(null);
+    this(null, null);
   }
 
   @Inject
-  public TestInlineBearerTokenPolarisAuthenticator(RealmEntityManagerFactory entityManagerFactory) {
-    super(entityManagerFactory);
+  public TestInlineBearerTokenPolarisAuthenticator(
+      RealmEntityManagerFactory entityManagerFactory, CallContext callContext) {
+    super(entityManagerFactory, callContext);
   }
 
   @Override
@@ -73,9 +73,8 @@ public class TestInlineBearerTokenPolarisAuthenticator extends BasePolarisAuthen
     Map<String, String> properties = extractPrincipal(credentials);
     PolarisMetaStoreManager metaStoreManager =
         entityManagerFactory
-            .getOrCreateEntityManager(CallContext.getCurrentContext().getRealmContext())
+            .getOrCreateEntityManager(callContext.getRealmContext())
             .getMetaStoreManager();
-    PolarisCallContext callContext = CallContext.getCurrentContext().getPolarisCallContext();
     String principal = properties.get("principal");
 
     LOGGER.info("Checking for existence of principal {} in map {}", principal, properties);
@@ -90,7 +89,9 @@ public class TestInlineBearerTokenPolarisAuthenticator extends BasePolarisAuthen
     }
 
     PolarisPrincipalSecrets secrets =
-        metaStoreManager.loadPrincipalSecrets(callContext, principal).getPrincipalSecrets();
+        metaStoreManager
+            .loadPrincipalSecrets(callContext.getPolarisCallContext(), principal)
+            .getPrincipalSecrets();
     if (secrets == null) {
       // For test scenarios, if we're allowing short-circuiting into the bearer flow, there may
       // not be a clientId/clientSecret, and instead we'll let the BasePolarisAuthenticator

@@ -18,6 +18,7 @@
  */
 package org.apache.polaris.service;
 
+import static org.apache.polaris.service.auth.BasePolarisAuthenticator.PRINCIPAL_ROLE_ALL;
 import static org.apache.polaris.service.context.DefaultRealmContextResolver.REALM_PROPERTY_KEY;
 import static org.apache.polaris.service.throttling.RequestThrottlingErrorResponse.RequestThrottlingErrorType.REQUEST_TOO_LARGE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -249,7 +250,7 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
             OAuth2Properties.CREDENTIAL,
             snowmanCredentials.clientId() + ":" + snowmanCredentials.clientSecret(),
             OAuth2Properties.SCOPE,
-            "PRINCIPAL_ROLE:ALL",
+            PRINCIPAL_ROLE_ALL,
             "warehouse",
             catalog,
             "header." + REALM_PROPERTY_KEY,
@@ -601,7 +602,7 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
                           OAuth2Properties.CREDENTIAL,
                           snowmanCredentials.clientId() + ":" + snowmanCredentials.clientSecret(),
                           OAuth2Properties.SCOPE,
-                          "PRINCIPAL_ROLE:ALL",
+                          PRINCIPAL_ROLE_ALL,
                           "warehouse",
                           emptyEnvironmentVariable,
                           "header." + REALM_PROPERTY_KEY,
@@ -674,7 +675,7 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
       String credentialString =
           snowmanCredentials.clientId() + ":" + snowmanCredentials.clientSecret();
       var authConfig =
-          AuthConfig.builder().credential(credentialString).scope("PRINCIPAL_ROLE:ALL").build();
+          AuthConfig.builder().credential(credentialString).scope(PRINCIPAL_ROLE_ALL).build();
       ImmutableAuthConfig configSpy = spy(authConfig);
       when(configSpy.expiresAtMillis()).thenReturn(0L);
       assertThat(configSpy.expiresAtMillis()).isEqualTo(0L);

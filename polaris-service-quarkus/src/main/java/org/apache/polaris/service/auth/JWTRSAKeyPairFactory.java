@@ -19,14 +19,15 @@
 package org.apache.polaris.service.auth;
 
 import io.quarkus.arc.lookup.LookupIfProperty;
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import java.time.Duration;
+import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.apache.polaris.service.config.RuntimeCandidate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@ApplicationScoped
+@RequestScoped
 @RuntimeCandidate
 @LookupIfProperty(
     name = "polaris.authentication.token-broker-factory.type",
@@ -34,14 +35,17 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class JWTRSAKeyPairFactory implements TokenBrokerFactory {
 
   private final RealmEntityManagerFactory realmEntityManagerFactory;
+  private final PolarisCallContext polarisCallContext;
   private final Duration maxTokenGenerationInSeconds;
   private final KeyProvider keyProvider;
 
   public JWTRSAKeyPairFactory(
       RealmEntityManagerFactory realmEntityManagerFactory,
+      PolarisCallContext polarisCallContext,
       KeyProvider keyProvider,
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.max-token-generation")
           Duration maxTokenGenerationInSeconds) {
+    this.polarisCallContext = polarisCallContext;
     this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
     this.realmEntityManagerFactory = realmEntityManagerFactory;
     this.keyProvider = keyProvider;
@@ -51,6 +55,7 @@ public class JWTRSAKeyPairFactory implements TokenBrokerFactory {
   public TokenBroker apply(RealmContext realmContext) {
     return new JWTRSAKeyPair(
         realmEntityManagerFactory.getOrCreateEntityManager(realmContext),
+        polarisCallContext,
         keyProvider,
         (int) maxTokenGenerationInSeconds.toSeconds());
   }

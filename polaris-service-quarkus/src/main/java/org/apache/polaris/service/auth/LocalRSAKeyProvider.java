@@ -19,7 +19,7 @@
 package org.apache.polaris.service.auth;
 
 import io.quarkus.arc.lookup.LookupIfProperty;
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import java.io.IOException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * Class that can load public / private keys stored on localhost. Meant to be a simple
  * implementation for now where a PEM file is loaded off disk.
  */
-@ApplicationScoped
+@RequestScoped
 @RuntimeCandidate
 @LookupIfProperty(name = "polaris.authentication.key-provider.type", stringValue = "local-rsa")
 public class LocalRSAKeyProvider implements KeyProvider {
@@ -43,8 +43,13 @@ public class LocalRSAKeyProvider implements KeyProvider {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(LocalRSAKeyProvider.class);
 
+  private final CallContext callContext;
+
+  public LocalRSAKeyProvider(CallContext callContext) {
+    this.callContext = callContext;
+  }
+
   private String getLocation(String configKey) {
-    CallContext callContext = CallContext.getCurrentContext();
     PolarisCallContext pCtx = callContext.getPolarisCallContext();
     String fileLocation = pCtx.getConfigurationStore().getConfiguration(pCtx, configKey);
     if (fileLocation == null) {

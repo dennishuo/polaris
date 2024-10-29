@@ -21,7 +21,7 @@ package org.apache.polaris.service.auth;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import io.quarkus.arc.lookup.LookupIfProperty;
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
@@ -40,16 +40,18 @@ import org.slf4j.LoggerFactory;
  * Default implementation of the {@link IcebergRestOAuth2ApiService} that generates a JWT token for
  * the client if the client secret matches.
  */
-@ApplicationScoped
+@RequestScoped
 @RuntimeCandidate
 @LookupIfProperty(name = "polaris.authentication.oauth2-service.type", stringValue = "default")
 public class DefaultOAuth2ApiService implements IcebergRestOAuth2ApiService {
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultOAuth2ApiService.class);
   private final TokenBrokerFactory tokenBrokerFactory;
+  private final CallContext callContext;
 
   @Inject
-  public DefaultOAuth2ApiService(TokenBrokerFactory tokenBrokerFactory) {
+  public DefaultOAuth2ApiService(TokenBrokerFactory tokenBrokerFactory, CallContext callContext) {
     this.tokenBrokerFactory = tokenBrokerFactory;
+    this.callContext = callContext;
   }
 
   @Override
@@ -66,8 +68,7 @@ public class DefaultOAuth2ApiService implements IcebergRestOAuth2ApiService {
       TokenType actorTokenType,
       SecurityContext securityContext) {
 
-    TokenBroker tokenBroker =
-        tokenBrokerFactory.apply(CallContext.getCurrentContext().getRealmContext());
+    TokenBroker tokenBroker = tokenBrokerFactory.apply(callContext.getRealmContext());
     if (!tokenBroker.supportsGrantType(grantType)) {
       return OAuthUtils.getResponseFromError(OAuthTokenErrorResponse.Error.unsupported_grant_type);
     }

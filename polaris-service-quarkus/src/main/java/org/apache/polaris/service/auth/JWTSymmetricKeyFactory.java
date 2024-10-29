@@ -19,19 +19,20 @@
 package org.apache.polaris.service.auth;
 
 import io.quarkus.arc.lookup.LookupIfProperty;
-import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.apache.polaris.service.config.RuntimeCandidate;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@ApplicationScoped
+@RequestScoped
 @RuntimeCandidate
 @LookupIfProperty(
     name = "polaris.authentication.token-broker-factory.type",
@@ -39,6 +40,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
 
   private final RealmEntityManagerFactory realmEntityManagerFactory;
+  private final PolarisCallContext polarisCallContext;
   private final Duration maxTokenGenerationInSeconds;
 
   private final Path file;
@@ -46,6 +48,7 @@ public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
 
   public JWTSymmetricKeyFactory(
       RealmEntityManagerFactory realmEntityManagerFactory,
+      PolarisCallContext polarisCallContext,
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.max-token-generation")
           Duration maxTokenGenerationInSeconds,
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.symmetric-key.secret")
@@ -53,6 +56,7 @@ public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
       @ConfigProperty(name = "polaris.authentication.token-broker-factory.symmetric-key.file")
           Optional<Path> file) {
     this.realmEntityManagerFactory = realmEntityManagerFactory;
+    this.polarisCallContext = polarisCallContext;
     this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
     this.secret = secret.orElse(null);
     this.file = file.orElse(null);
@@ -66,6 +70,7 @@ public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
     Supplier<String> secretSupplier = secret != null ? () -> secret : readSecretFromDisk();
     return new JWTSymmetricKeyBroker(
         realmEntityManagerFactory.getOrCreateEntityManager(realmContext),
+        polarisCallContext,
         (int) maxTokenGenerationInSeconds.toSeconds(),
         secretSupplier);
   }

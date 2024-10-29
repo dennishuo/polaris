@@ -18,6 +18,7 @@
  */
 package org.apache.polaris.service.auth;
 
+import static org.apache.polaris.service.auth.BasePolarisAuthenticator.PRINCIPAL_ROLE_ALL;
 import static org.apache.polaris.service.context.DefaultRealmContextResolver.REALM_PROPERTY_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,7 +53,7 @@ public class TokenUtils {
                         "grant_type",
                         "client_credentials",
                         "scope",
-                        "PRINCIPAL_ROLE:ALL",
+                        PRINCIPAL_ROLE_ALL,
                         "client_id",
                         clientId,
                         "client_secret",

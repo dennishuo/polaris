@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.iceberg.exceptions.NotAuthorizedException;
-import org.apache.polaris.core.context.CallContext;
+import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.PrincipalEntity;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
@@ -45,11 +45,16 @@ abstract class JWTBroker implements TokenBroker {
   private static final String CLAIM_KEY_SCOPE = "scope";
 
   private final PolarisEntityManager entityManager;
+  private final PolarisCallContext polarisCallContext;
   private final int maxTokenGenerationInSeconds;
 
-  JWTBroker(PolarisEntityManager entityManager, int maxTokenGenerationInSeconds) {
+  JWTBroker(
+      PolarisEntityManager entityManager,
+      PolarisCallContext polarisCallContext,
+      int maxTokenGenerationInSeconds) {
     this.entityManager = entityManager;
     this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
+    this.polarisCallContext = polarisCallContext;
   }
 
   abstract Algorithm getAlgorithm();
@@ -101,10 +106,7 @@ abstract class JWTBroker implements TokenBroker {
     PolarisMetaStoreManager.EntityResult principalLookup =
         entityManager
             .getMetaStoreManager()
-            .loadEntity(
-                CallContext.getCurrentContext().getPolarisCallContext(),
-                0L,
-                decodedToken.getPrincipalId());
+            .loadEntity(polarisCallContext, 0L, decodedToken.getPrincipalId());
     if (!principalLookup.isSuccess()
         || principalLookup.getEntity().getType() != PolarisEntityType.PRINCIPAL) {
       return new TokenResponse(OAuthTokenErrorResponse.Error.unauthorized_client);
@@ -128,7 +130,7 @@ abstract class JWTBroker implements TokenBroker {
     }
 
     Optional<PrincipalEntity> principal =
-        TokenBroker.findPrincipalEntity(entityManager, clientId, clientSecret);
+        TokenBroker.findPrincipalEntity(entityManager, clientId, clientSecret, polarisCallContext);
     if (principal.isEmpty()) {
       return new TokenResponse(OAuthTokenErrorResponse.Error.unauthorized_client);
     }

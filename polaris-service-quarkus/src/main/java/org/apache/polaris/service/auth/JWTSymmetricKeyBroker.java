@@ -20,6 +20,7 @@ package org.apache.polaris.service.auth;
 
 import com.auth0.jwt.algorithms.Algorithm;
 import java.util.function.Supplier;
+import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 
 /** Generates a JWT using a Symmetric Key. */
@@ -28,9 +29,10 @@ public class JWTSymmetricKeyBroker extends JWTBroker {
 
   JWTSymmetricKeyBroker(
       PolarisEntityManager entityManager,
+      PolarisCallContext polarisCallContext,
       int maxTokenGenerationInSeconds,
       Supplier<String> secretSupplier) {
-    super(entityManager, maxTokenGenerationInSeconds);
+    super(entityManager, polarisCallContext, maxTokenGenerationInSeconds);
     this.secretSupplier = secretSupplier;
   }
 
