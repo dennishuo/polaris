@@ -442,8 +442,7 @@ public class IcebergCatalogAdapter
     // TODO: Push this down into PolarisCatalogHandlerWrapper for authorizing "any" catalog
     // role in this catalog.
     PolarisEntityManager entityManager =
-        entityManagerFactory.getOrCreateEntityManager(
-            CallContext.getCurrentContext().getRealmContext());
+        entityManagerFactory.getOrCreateEntityManager(callContext.getRealmContext());
     AuthenticatedPolarisPrincipal authenticatedPrincipal =
         (AuthenticatedPolarisPrincipal) securityContext.getUserPrincipal();
     if (authenticatedPrincipal == null) {
@@ -453,8 +452,7 @@ public class IcebergCatalogAdapter
       throw new BadRequestException("Please specify a warehouse");
     }
     Resolver resolver =
-        entityManager.prepareResolver(
-            CallContext.getCurrentContext(), authenticatedPrincipal, warehouse);
+        entityManager.prepareResolver(callContext, authenticatedPrincipal, warehouse);
     ResolverStatus resolverStatus = resolver.resolveAll();
     if (!resolverStatus.getStatus().equals(ResolverStatus.StatusEnum.SUCCESS)) {
       throw new NotFoundException("Unable to find warehouse %s", warehouse);

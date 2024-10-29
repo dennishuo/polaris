@@ -261,7 +261,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
             CatalogProperties.FILE_IO_IMPL);
       }
     }
-    this.closeableGroup = CallContext.getCurrentContext().closeables();
+    this.closeableGroup = callContext.closeables();
     closeableGroup.addCloseable(metricsReporter());
     closeableGroup.setSuppressCloseFailure(true);
 
