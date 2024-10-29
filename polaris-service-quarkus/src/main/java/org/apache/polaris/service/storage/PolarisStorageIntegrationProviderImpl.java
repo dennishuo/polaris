@@ -30,10 +30,7 @@ import jakarta.inject.Inject;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Date;
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.storage.PolarisCredentialProperty;
@@ -63,26 +60,27 @@ public class PolarisStorageIntegrationProviderImpl implements PolarisStorageInte
 
   @Inject
   public PolarisStorageIntegrationProviderImpl(
-      @ConfigProperty(name = "polaris.storage.aws.awsAccessKey") String awsAccessKey,
-      @ConfigProperty(name = "polaris.storage.aws.awsSecretKey") String awsSecretKey,
-      @ConfigProperty(name = "polaris.storage.gcp.token") String gcpAccessToken,
-      @ConfigProperty(name = "polaris.storage.gcp.lifespan") Duration lifespan) {
-    // TODO clean up this constructor
+      @ConfigProperty(name = "polaris.storage.aws.awsAccessKey") Optional<String> awsAccessKey,
+      @ConfigProperty(name = "polaris.storage.aws.awsSecretKey") Optional<String> awsSecretKey,
+      @ConfigProperty(name = "polaris.storage.gcp.token") Optional<String> gcpAccessToken,
+      @ConfigProperty(name = "polaris.storage.gcp.lifespan") Optional<Duration> lifespan) {
+    // TODO clean up this constructor, use bean injection with qualifier for configuration for each
+    // provider (AWS, GCP, ...)
     this(
         () -> {
           StsClientBuilder stsClientBuilder = StsClient.builder();
-          if (!awsAccessKey.isBlank() && !awsSecretKey.isBlank()) {
+          if (!awsAccessKey.get().isBlank() && !awsSecretKey.get().isBlank()) {
             LOGGER.warn(
                 "Using hard-coded AWS credentials - this is not recommended for production");
             StaticCredentialsProvider awsCredentialsProvider =
                 StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(awsAccessKey, awsSecretKey));
+                    AwsBasicCredentials.create(awsAccessKey.get(), awsSecretKey.get()));
             stsClientBuilder.credentialsProvider(awsCredentialsProvider);
           }
           return stsClientBuilder.build();
         },
         () -> {
-          if (gcpAccessToken.isBlank()) {
+          if (gcpAccessToken.get().isBlank()) {
             try {
               return GoogleCredentials.getApplicationDefault();
             } catch (IOException e) {
@@ -91,7 +89,8 @@ public class PolarisStorageIntegrationProviderImpl implements PolarisStorageInte
           } else {
             AccessToken accessToken =
                 new AccessToken(
-                    gcpAccessToken, new Date(Instant.now().plus(lifespan).toEpochMilli()));
+                    gcpAccessToken.get(),
+                    new Date(Instant.now().plus(lifespan.get()).toEpochMilli()));
             return GoogleCredentials.create(accessToken);
           }
         });
