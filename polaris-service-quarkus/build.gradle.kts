@@ -64,6 +64,7 @@ dependencies {
   implementation(libs.slf4j.api)
 
   implementation(libs.hadoop.client.api)
+  implementation(libs.hadoop.client.runtime)
 
   implementation(libs.auth0.jwt)
 
