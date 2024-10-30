@@ -24,11 +24,9 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
 import io.quarkus.test.junit.QuarkusMock;
-import io.quarkus.test.junit.QuarkusTestProfile;
-import io.quarkus.test.junit.TestProfile;
-import jakarta.decorator.Decorator;
-import jakarta.decorator.Delegate;
-import jakarta.enterprise.inject.Alternative;
+import jakarta.annotation.Nonnull;
+import jakarta.enterprise.inject.Vetoed;
+import jakarta.enterprise.inject.spi.CDI;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -74,12 +72,14 @@ import org.apache.polaris.core.storage.cache.StorageCredentialCache;
 import org.apache.polaris.service.catalog.BasePolarisCatalog;
 import org.apache.polaris.service.catalog.PolarisPassthroughResolutionView;
 import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
+import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.config.DefaultConfigurationStore;
+import org.apache.polaris.service.config.RealmEntityManagerFactory;
 import org.apache.polaris.service.context.CallContextCatalogFactory;
 import org.apache.polaris.service.context.PolarisCallContextCatalogFactory;
 import org.apache.polaris.service.storage.PolarisStorageIntegrationProviderImpl;
+import org.apache.polaris.service.task.TaskExecutor;
 import org.assertj.core.api.Assertions;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,7 +87,6 @@ import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
 /** Base class for shared test setup logic used by various Polaris authz-related tests. */
-@TestProfile(PolarisAuthzTestBase.Profile.class)
 public abstract class PolarisAuthzTestBase {
   protected static final String CATALOG_NAME = "polaris-catalog";
   protected static final String PRINCIPAL_NAME = "snowman";
@@ -168,6 +167,12 @@ public abstract class PolarisAuthzTestBase {
         new PolarisStorageIntegrationProviderImpl(
             Mockito::mock, () -> GoogleCredentials.create(new AccessToken("abc", new Date())));
     QuarkusMock.installMockForType(mock, PolarisStorageIntegrationProviderImpl.class);
+    RealmEntityManagerFactory realmEntityManagerFactory = CDI.current()
+        .select(RealmEntityManagerFactory.class).get();
+    TaskExecutor taskExecutor = CDI.current().select(TaskExecutor.class).get();
+    FileIOFactory fileIOFactory = CDI.current().select(FileIOFactory.class).get();
+    TestPolarisCallContextCatalogFactory m = new TestPolarisCallContextCatalogFactory(realmEntityManagerFactory, taskExecutor, fileIOFactory);
+    QuarkusMock.installMockForType(m, PolarisCallContextCatalogFactory.class);
   }
 
   @BeforeEach
@@ -314,7 +319,7 @@ public abstract class PolarisAuthzTestBase {
     metaStoreManager.purge(polarisContext);
   }
 
-  protected @NotNull PrincipalEntity rotateAndRefreshPrincipal(
+  protected @Nonnull PrincipalEntity rotateAndRefreshPrincipal(
       PolarisMetaStoreManager metaStoreManager,
       String principalName,
       PrincipalWithCredentialsCredentials credentials,
@@ -377,11 +382,16 @@ public abstract class PolarisAuthzTestBase {
             CatalogProperties.FILE_IO_IMPL, "org.apache.iceberg.inmemory.InMemoryFileIO"));
   }
 
-  @Alternative
-  @Decorator
-  public static class TestPolarisCallContextCatalogFactory implements CallContextCatalogFactory {
+  @Vetoed
+  public static class TestPolarisCallContextCatalogFactory
+      extends PolarisCallContextCatalogFactory {
 
-    @Inject @Delegate PolarisCallContextCatalogFactory delegate;
+    public TestPolarisCallContextCatalogFactory(
+        RealmEntityManagerFactory entityManagerFactory,
+        TaskExecutor taskExecutor,
+        FileIOFactory fileIOFactory) {
+      super(entityManagerFactory, taskExecutor, fileIOFactory);
+    }
 
     @Override
     public Catalog createCallContextCatalog(
@@ -391,8 +401,7 @@ public abstract class PolarisAuthzTestBase {
       // This depends on the BasePolarisCatalog allowing calling initialize multiple times
       // to override the previous config.
       Catalog catalog =
-          delegate.createCallContextCatalog(
-              context, authenticatedPolarisPrincipal, resolvedManifest);
+          super.createCallContextCatalog(context, authenticatedPolarisPrincipal, resolvedManifest);
       catalog.initialize(
           CATALOG_NAME,
           ImmutableMap.of(
@@ -524,14 +533,6 @@ public abstract class PolarisAuthzTestBase {
       // Revoking only matters in case there are some multi-privilege actions being tested with
       // only granting individual privileges in isolation.
       Assertions.assertThat(revokeAction.apply(privilege)).isTrue();
-    }
-  }
-
-  public static class Profile implements QuarkusTestProfile {
-
-    @Override
-    public Set<Class<?>> getEnabledAlternatives() {
-      return Set.of(TestPolarisCallContextCatalogFactory.class);
     }
   }
 }
