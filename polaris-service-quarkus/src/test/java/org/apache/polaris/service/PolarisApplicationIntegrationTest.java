@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.callback.QuarkusTestBeforeEachCallback;
 import io.quarkus.test.junit.callback.QuarkusTestMethodContext;
@@ -77,6 +78,9 @@ import org.apache.polaris.core.admin.model.PrincipalRole;
 import org.apache.polaris.core.admin.model.StorageConfigInfo;
 import org.apache.polaris.core.entity.CatalogEntity;
 import org.apache.polaris.core.entity.PolarisEntityConstants;
+import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
+import org.apache.polaris.service.catalog.io.FileIOFactory;
+import org.apache.polaris.service.test.MockFileIOFactory;
 import org.apache.polaris.service.test.PolarisIntegrationTestBase;
 import org.apache.polaris.service.throttling.RequestThrottlingErrorResponse;
 import org.assertj.core.api.Assertions;
@@ -102,6 +106,8 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
   @BeforeAll
   @Override
   public void setup(TestInfo testInfo) {
+    DefaultFileIOFactory mock = new MockFileIOFactory();
+    QuarkusMock.installMockForType(mock, FileIOFactory.class);
     super.setup(testInfo);
     PrincipalRole principalRole = new PrincipalRole(PRINCIPAL_ROLE_NAME);
     try (Response createPrResponse =

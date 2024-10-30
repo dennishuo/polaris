@@ -36,7 +36,7 @@ public class PolarisS3FileIOClientFactory implements S3FileIOAwsClientFactory {
   private HttpClientProperties httpClientProperties;
   private AwsClientProperties awsClientProperties;
 
-  PolarisS3FileIOClientFactory() {
+  public PolarisS3FileIOClientFactory() {
     this.s3FileIOProperties = new S3FileIOProperties();
     this.httpClientProperties = new HttpClientProperties();
     this.awsClientProperties = new AwsClientProperties();
