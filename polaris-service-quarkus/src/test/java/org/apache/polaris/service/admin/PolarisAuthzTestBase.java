@@ -167,11 +167,13 @@ public abstract class PolarisAuthzTestBase {
         new PolarisStorageIntegrationProviderImpl(
             Mockito::mock, () -> GoogleCredentials.create(new AccessToken("abc", new Date())));
     QuarkusMock.installMockForType(mock, PolarisStorageIntegrationProviderImpl.class);
-    RealmEntityManagerFactory realmEntityManagerFactory = CDI.current()
-        .select(RealmEntityManagerFactory.class).get();
+    RealmEntityManagerFactory realmEntityManagerFactory =
+        CDI.current().select(RealmEntityManagerFactory.class).get();
     TaskExecutor taskExecutor = CDI.current().select(TaskExecutor.class).get();
     FileIOFactory fileIOFactory = CDI.current().select(FileIOFactory.class).get();
-    TestPolarisCallContextCatalogFactory m = new TestPolarisCallContextCatalogFactory(realmEntityManagerFactory, taskExecutor, fileIOFactory);
+    TestPolarisCallContextCatalogFactory m =
+        new TestPolarisCallContextCatalogFactory(
+            realmEntityManagerFactory, taskExecutor, fileIOFactory);
     QuarkusMock.installMockForType(m, PolarisCallContextCatalogFactory.class);
   }
 
