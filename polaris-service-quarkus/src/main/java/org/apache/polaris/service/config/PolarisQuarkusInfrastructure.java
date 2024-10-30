@@ -165,23 +165,4 @@ public class PolarisQuarkusInfrastructure {
       @RuntimeCandidate Instance<IcebergRestOAuth2ApiService> services) {
     return services.get();
   }
-
-  //  // PolarisCatalogsApi
-  //  @Produces
-  //  public PolarisCatalogsApi polarisCatalogsApi(PolarisCatalogsApiService service) {
-  //    return new PolarisCatalogsApi(service);
-  //  }
-
-  // PolarisPrincipalRolesApi
-  @Produces
-  @Singleton
-  public PolarisPrincipalRolesApi polarisPrincipalRolesApiService(
-      PolarisPrincipalRolesApiService service) {
-    return new PolarisPrincipalRolesApi(service);
-  }
-
-  // PolarisPrincipalsApi
-  // IcebergRestCatalogApi
-  // IcebergRestConfigurationApi
-  // IcebergRestOAuth2Api
 }
