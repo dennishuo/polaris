@@ -38,10 +38,6 @@ public class JWTRSAKeyPair extends JWTBroker {
     this.keyProvider = keyProvider;
   }
 
-  KeyProvider getKeyProvider() {
-    return keyProvider;
-  }
-
   @Override
   Algorithm getAlgorithm() {
     return Algorithm.RSA256(
