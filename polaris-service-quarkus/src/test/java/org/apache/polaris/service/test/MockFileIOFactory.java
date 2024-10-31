@@ -32,8 +32,7 @@ public class MockFileIOFactory extends DefaultFileIOFactory {
   @Override
   public FileIO loadFileIO(String impl, Map<String, String> properties) {
     // workaround for class loading issues
-    if ("org.apache.polaris.core.storage.aws.PolarisS3FileIOClientFactory"
-        .equals(properties.get("s3.client-factory-impl"))) {
+    if (impl.equals("org.apache.iceberg.aws.s3.S3FileIO")) {
       PolarisS3FileIOClientFactory factory = new PolarisS3FileIOClientFactory();
       factory.initialize(properties);
       return new S3FileIO(factory::s3, new S3FileIOProperties(properties));

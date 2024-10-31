@@ -20,22 +20,19 @@ package org.apache.polaris.service;
 
 import static org.apache.polaris.service.auth.BasePolarisAuthenticator.PRINCIPAL_ROLE_ALL;
 import static org.apache.polaris.service.context.DefaultRealmContextResolver.REALM_PROPERTY_KEY;
-import static org.apache.polaris.service.throttling.RequestThrottlingErrorResponse.RequestThrottlingErrorType.REQUEST_TOO_LARGE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.callback.QuarkusTestBeforeEachCallback;
-import io.quarkus.test.junit.callback.QuarkusTestMethodContext;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.core.Response;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
@@ -62,7 +59,6 @@ import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.AuthConfig;
-import org.apache.iceberg.rest.auth.ImmutableAuthConfig;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.apache.iceberg.rest.auth.OAuth2Util;
 import org.apache.iceberg.types.Types;
@@ -82,21 +78,18 @@ import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
 import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.test.MockFileIOFactory;
 import org.apache.polaris.service.test.PolarisIntegrationTestBase;
-import org.apache.polaris.service.throttling.RequestThrottlingErrorResponse;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @QuarkusTest
-@Disabled
-public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBase
-    implements QuarkusTestBeforeEachCallback {
+public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBase {
 
   private static final Logger LOGGER =
       LoggerFactory.getLogger(PolarisApplicationIntegrationTest.class);
@@ -157,14 +150,18 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
    * Create a new catalog for each test case. Assign the snowman catalog-admin principal role the
    * admin role of the new catalog.
    *
-   * @param context
+   * @param testInfo
    */
-  @Override
-  public void beforeEach(QuarkusTestMethodContext context) {
-    Method method = context.getTestMethod();
-    String catalogName = method.getName();
-    Catalog.TypeEnum catalogType = Catalog.TypeEnum.INTERNAL;
-    createCatalog(catalogName, catalogType, PRINCIPAL_ROLE_NAME);
+  @BeforeEach
+  public void createTestCatalog(TestInfo testInfo) {
+    testInfo
+        .getTestMethod()
+        .ifPresent(
+            method -> {
+              String catalogName = method.getName();
+              Catalog.TypeEnum catalogType = Catalog.TypeEnum.INTERNAL;
+              createCatalog(catalogName, catalogType, PRINCIPAL_ROLE_NAME);
+            });
   }
 
   private void createCatalog(
@@ -664,12 +661,7 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
             .header(REALM_PROPERTY_KEY, realm)
             .post(largeRequest)) {
       assertThat(response)
-          .returns(Response.Status.BAD_REQUEST.getStatusCode(), Response::getStatus)
-          .matches(
-              r ->
-                  r.readEntity(RequestThrottlingErrorResponse.class)
-                      .errorType()
-                      .equals(REQUEST_TOO_LARGE));
+          .returns(Response.Status.REQUEST_ENTITY_TOO_LARGE.getStatusCode(), Response::getStatus);
     }
   }
 
@@ -680,21 +672,20 @@ public class PolarisApplicationIntegrationTest extends PolarisIntegrationTestBas
         HTTPClient.builder(Map.of()).withHeader(REALM_PROPERTY_KEY, realm).uri(path).build()) {
       String credentialString =
           snowmanCredentials.clientId() + ":" + snowmanCredentials.clientSecret();
-      var authConfig =
-          AuthConfig.builder().credential(credentialString).scope(PRINCIPAL_ROLE_ALL).build();
-      ImmutableAuthConfig configSpy = spy(authConfig);
-      when(configSpy.expiresAtMillis()).thenReturn(0L);
-      assertThat(configSpy.expiresAtMillis()).isEqualTo(0L);
-      when(configSpy.oauth2ServerUri()).thenReturn(path);
+      AuthConfig configMock = mock(AuthConfig.class);
+      when(configMock.credential()).thenReturn(credentialString);
+      when(configMock.scope()).thenReturn(PRINCIPAL_ROLE_ALL);
+      when(configMock.expiresAtMillis()).thenReturn(0L);
+      when(configMock.oauth2ServerUri()).thenReturn(path);
 
-      var parentSession = new OAuth2Util.AuthSession(Map.of(), configSpy);
+      var parentSession = new OAuth2Util.AuthSession(Map.of(), configMock);
       var session =
           OAuth2Util.AuthSession.fromAccessToken(client, null, userToken, 0L, parentSession);
 
       OAuth2Util.AuthSession sessionSpy = spy(session);
       when(sessionSpy.expiresAtMillis()).thenReturn(0L);
       assertThat(sessionSpy.expiresAtMillis()).isEqualTo(0L);
-      assertThat(sessionSpy).isEqualTo(userToken);
+      assertThat(sessionSpy.token()).isEqualTo(userToken);
 
       sessionSpy.refresh(client);
       assertThat(sessionSpy.credential()).isNotNull();
