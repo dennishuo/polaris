@@ -81,6 +81,7 @@ import org.apache.polaris.service.types.NotificationType;
 import org.apache.polaris.service.types.TableUpdateNotification;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -115,6 +116,11 @@ public class PolarisRestCatalogIntegrationTest extends CatalogTests<RESTCatalog>
   @BeforeAll
   public void setUp(TestInfo testInfo) {
     testHelper.setUp(testInfo);
+  }
+
+  @AfterAll
+  public void tearDown() {
+    testHelper.tearDown();
   }
 
   @BeforeEach

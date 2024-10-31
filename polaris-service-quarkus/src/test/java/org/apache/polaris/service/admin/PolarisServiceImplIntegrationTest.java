@@ -80,6 +80,7 @@ import org.apache.polaris.core.entity.PolarisEntityConstants;
 import org.apache.polaris.service.auth.TokenUtils;
 import org.apache.polaris.service.test.PolarisIntegrationTestHelper;
 import org.assertj.core.api.InstanceOfAssertFactories;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -104,8 +105,13 @@ public class PolarisServiceImplIntegrationTest {
     testHelper.setUp(testInfo);
   }
 
-  @AfterEach
+  @AfterAll
   public void tearDown() {
+    testHelper.tearDown();
+  }
+
+  @AfterEach
+  public void after() {
     try (Response response = newRequest("http://localhost:%d/api/management/v1/catalogs").get()) {
       response
           .readEntity(Catalogs.class)

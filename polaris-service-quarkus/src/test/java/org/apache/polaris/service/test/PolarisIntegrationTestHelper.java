@@ -209,9 +209,7 @@ public class PolarisIntegrationTestHelper {
 
   public void tearDown() {
     try {
-      if (!(metaStoreManagerFactory instanceof InMemoryPolarisMetaStoreManagerFactory)) {
-        metaStoreManagerFactory.purgeRealms(List.of(realm));
-      }
+      metaStoreManagerFactory.purgeRealms(List.of(realm));
     } finally {
       if (client != null) {
         client.close();

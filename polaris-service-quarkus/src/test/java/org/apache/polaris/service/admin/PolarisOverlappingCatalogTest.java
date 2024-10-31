@@ -39,6 +39,7 @@ import org.apache.polaris.core.admin.model.CatalogProperties;
 import org.apache.polaris.core.admin.model.CreateCatalogRequest;
 import org.apache.polaris.core.admin.model.StorageConfigInfo;
 import org.apache.polaris.service.test.PolarisIntegrationTestHelper;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
@@ -55,6 +56,11 @@ public class PolarisOverlappingCatalogTest {
   @BeforeAll
   public void setUp(TestInfo testInfo) {
     testHelper.setUp(testInfo);
+  }
+
+  @AfterAll
+  public void tearDown() {
+    testHelper.tearDown();
   }
 
   private Response createCatalog(String prefix, String defaultBaseLocation, boolean isExternal) {
