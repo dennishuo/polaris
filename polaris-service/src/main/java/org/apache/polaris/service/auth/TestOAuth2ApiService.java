@@ -18,7 +18,9 @@
  */
 package org.apache.polaris.service.auth;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import java.util.HashMap;
@@ -31,18 +33,29 @@ import org.apache.polaris.core.entity.PolarisEntitySubType;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
-import org.apache.polaris.service.config.HasEntityManagerFactory;
-import org.apache.polaris.service.config.OAuth2ApiService;
+import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.config.RuntimeCandidate;
 import org.apache.polaris.service.types.TokenType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@JsonTypeName("test")
-public class TestOAuth2ApiService implements OAuth2ApiService, HasEntityManagerFactory {
+@RequestScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.authentication.oauth2-service.type", stringValue = "test")
+public class TestOAuth2ApiService implements IcebergRestOAuth2ApiService {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestOAuth2ApiService.class);
 
-  private RealmEntityManagerFactory entityManagerFactory;
+  private final RealmEntityManagerFactory entityManagerFactory;
+  private final CallContext callContext;
+
+  @Inject
+  public TestOAuth2ApiService(
+      RealmEntityManagerFactory entityManagerFactory, CallContext callContext) {
+    this.entityManagerFactory = entityManagerFactory;
+    this.callContext = callContext;
+    CallContext.setCurrentContext(callContext);
+  }
 
   @Override
   public Response getToken(
@@ -66,7 +79,7 @@ public class TestOAuth2ApiService implements OAuth2ApiService, HasEntityManagerF
             + ";password:"
             + clientSecret
             + ";realm:"
-            + CallContext.getCurrentContext().getRealmContext().getRealmIdentifier()
+            + callContext.getRealmContext().getRealmIdentifier()
             + ";role:"
             + scope.replaceAll(BasePolarisAuthenticator.PRINCIPAL_ROLE_PREFIX, ""));
     response.put("token_type", "bearer");
@@ -77,9 +90,8 @@ public class TestOAuth2ApiService implements OAuth2ApiService, HasEntityManagerF
 
   private String getPrincipalName(String clientId) {
     PolarisEntityManager entityManager =
-        entityManagerFactory.getOrCreateEntityManager(
-            CallContext.getCurrentContext().getRealmContext());
-    PolarisCallContext polarisCallContext = CallContext.getCurrentContext().getPolarisCallContext();
+        entityManagerFactory.getOrCreateEntityManager(callContext.getRealmContext());
+    PolarisCallContext polarisCallContext = callContext.getPolarisCallContext();
     PolarisMetaStoreManager.PrincipalSecretsResult secretsResult =
         entityManager.getMetaStoreManager().loadPrincipalSecrets(polarisCallContext, clientId);
     if (secretsResult.isSuccess()) {
@@ -111,12 +123,4 @@ public class TestOAuth2ApiService implements OAuth2ApiService, HasEntityManagerF
       return principalResult.getEntity().getName();
     }
   }
-
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
-    this.entityManagerFactory = entityManagerFactory;
-  }
-
-  @Override
-  public void setTokenBroker(TokenBrokerFactory tokenBrokerFactory) {}
 }

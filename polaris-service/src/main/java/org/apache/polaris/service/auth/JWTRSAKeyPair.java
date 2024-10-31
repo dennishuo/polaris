@@ -21,22 +21,25 @@ package org.apache.polaris.service.auth;
 import com.auth0.jwt.algorithms.Algorithm;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 
 /** Generates a JWT using a Public/Private RSA Key */
 public class JWTRSAKeyPair extends JWTBroker {
 
-  JWTRSAKeyPair(PolarisEntityManager entityManager, int maxTokenGenerationInSeconds) {
-    super(entityManager, maxTokenGenerationInSeconds);
-  }
+  private final KeyProvider keyProvider;
 
-  KeyProvider getKeyProvider() {
-    return new LocalRSAKeyProvider();
+  JWTRSAKeyPair(
+      PolarisEntityManager entityManager,
+      PolarisCallContext polarisCallContext,
+      KeyProvider keyProvider,
+      int maxTokenGenerationInSeconds) {
+    super(entityManager, polarisCallContext, maxTokenGenerationInSeconds);
+    this.keyProvider = keyProvider;
   }
 
   @Override
   Algorithm getAlgorithm() {
-    KeyProvider keyProvider = getKeyProvider();
     return Algorithm.RSA256(
         (RSAPublicKey) keyProvider.getPublicKey(), (RSAPrivateKey) keyProvider.getPrivateKey());
   }

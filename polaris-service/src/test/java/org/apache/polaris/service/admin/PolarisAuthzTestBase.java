@@ -23,7 +23,13 @@ import static org.apache.iceberg.types.Types.NestedField.required;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
+import io.quarkus.test.junit.QuarkusMock;
+import jakarta.annotation.Nonnull;
+import jakarta.enterprise.inject.Vetoed;
+import jakarta.enterprise.inject.spi.CDI;
+import jakarta.inject.Inject;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.time.Clock;
 import java.util.Date;
 import java.util.List;
@@ -40,7 +46,6 @@ import org.apache.iceberg.types.Types;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfiguration;
 import org.apache.polaris.core.PolarisConfigurationStore;
-import org.apache.polaris.core.PolarisDefaultDiagServiceImpl;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.admin.model.FileStorageConfigInfo;
 import org.apache.polaris.core.admin.model.PrincipalWithCredentials;
@@ -59,6 +64,7 @@ import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.PolarisPrivilege;
 import org.apache.polaris.core.entity.PrincipalEntity;
 import org.apache.polaris.core.entity.PrincipalRoleEntity;
+import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
 import org.apache.polaris.core.persistence.resolver.PolarisResolutionManifest;
@@ -66,16 +72,18 @@ import org.apache.polaris.core.storage.cache.StorageCredentialCache;
 import org.apache.polaris.service.catalog.BasePolarisCatalog;
 import org.apache.polaris.service.catalog.PolarisPassthroughResolutionView;
 import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
+import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.config.DefaultConfigurationStore;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.context.CallContextCatalogFactory;
 import org.apache.polaris.service.context.PolarisCallContextCatalogFactory;
-import org.apache.polaris.service.persistence.InMemoryPolarisMetaStoreManagerFactory;
 import org.apache.polaris.service.storage.PolarisStorageIntegrationProviderImpl;
+import org.apache.polaris.service.task.TaskExecutor;
 import org.assertj.core.api.Assertions;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
 
 /** Base class for shared test setup logic used by various Polaris authz-related tests. */
@@ -136,6 +144,11 @@ public abstract class PolarisAuthzTestBase {
                   PolarisConfiguration.ENFORCE_PRINCIPAL_CREDENTIAL_ROTATION_REQUIRED_CHECKING.key,
                   true)));
 
+  @Inject protected MetaStoreManagerFactory managerFactory;
+  @Inject protected PolarisConfigurationStore configurationStore;
+  @Inject protected CallContextCatalogFactory callContextCatalogFactory;
+  @Inject protected PolarisDiagnostics diagServices;
+
   protected BasePolarisCatalog baseCatalog;
   protected PolarisAdminService adminService;
   protected PolarisEntityManager entityManager;
@@ -144,46 +157,46 @@ public abstract class PolarisAuthzTestBase {
   protected CallContext callContext;
   protected AuthenticatedPolarisPrincipal authenticatedRoot;
 
-  @BeforeEach
-  @SuppressWarnings("unchecked")
-  public void before() {
-    PolarisDiagnostics diagServices = new PolarisDefaultDiagServiceImpl();
-    InMemoryPolarisMetaStoreManagerFactory managerFactory =
-        new InMemoryPolarisMetaStoreManagerFactory();
-    managerFactory.setStorageIntegrationProvider(
-        new PolarisStorageIntegrationProviderImpl(
-            Mockito::mock, () -> GoogleCredentials.create(new AccessToken("abc", new Date()))));
-    RealmContext realmContext = () -> "realm";
-    PolarisMetaStoreManager metaStoreManager =
-        managerFactory.getOrCreateMetaStoreManager(realmContext);
+  private String realmName;
+  private PolarisCallContext polarisContext;
+  private PolarisMetaStoreManager metaStoreManager;
 
-    Map<String, Object> configMap =
-        Map.of(
-            "ALLOW_SPECIFYING_FILE_IO_IMPL", true, "ALLOW_EXTERNAL_METADATA_FILE_LOCATION", true);
-    PolarisCallContext polarisContext =
+  @BeforeAll
+  public static void setUpMocks() {
+    PolarisStorageIntegrationProviderImpl mock =
+        new PolarisStorageIntegrationProviderImpl(
+            Mockito::mock, () -> GoogleCredentials.create(new AccessToken("abc", new Date())));
+    QuarkusMock.installMockForType(mock, PolarisStorageIntegrationProviderImpl.class);
+    RealmEntityManagerFactory realmEntityManagerFactory =
+        CDI.current().select(RealmEntityManagerFactory.class).get();
+    TaskExecutor taskExecutor = CDI.current().select(TaskExecutor.class).get();
+    FileIOFactory fileIOFactory = CDI.current().select(FileIOFactory.class).get();
+    TestPolarisCallContextCatalogFactory m =
+        new TestPolarisCallContextCatalogFactory(
+            realmEntityManagerFactory, taskExecutor, fileIOFactory);
+    QuarkusMock.installMockForType(m, PolarisCallContextCatalogFactory.class);
+  }
+
+  @BeforeEach
+  public void before(TestInfo testInfo) {
+    realmName =
+        "realm_%s_%s"
+            .formatted(
+                testInfo.getTestMethod().map(Method::getName).orElse("test"), System.nanoTime());
+    RealmContext realmContext = () -> realmName;
+    metaStoreManager = managerFactory.getOrCreateMetaStoreManager(realmContext);
+
+    polarisContext =
         new PolarisCallContext(
             managerFactory.getOrCreateSessionSupplier(realmContext).get(),
             diagServices,
-            new PolarisConfigurationStore() {
-              @Override
-              public <T> @Nullable T getConfiguration(PolarisCallContext ctx, String configName) {
-                return (T) configMap.get(configName);
-              }
-            },
+            configurationStore,
             Clock.systemDefaultZone());
     this.entityManager =
         new PolarisEntityManager(
             metaStoreManager, polarisContext::getMetaStore, new StorageCredentialCache());
 
-    callContext =
-        CallContext.of(
-            new RealmContext() {
-              @Override
-              public String getRealmIdentifier() {
-                return "test-realm";
-              }
-            },
-            polarisContext);
+    callContext = CallContext.of(realmContext, polarisContext);
     CallContext.setCurrentContext(callContext);
 
     PrincipalEntity rootEntity =
@@ -305,9 +318,10 @@ public abstract class PolarisAuthzTestBase {
         throw new RuntimeException(e);
       }
     }
+    metaStoreManager.purge(polarisContext);
   }
 
-  protected @NotNull PrincipalEntity rotateAndRefreshPrincipal(
+  protected @Nonnull PrincipalEntity rotateAndRefreshPrincipal(
       PolarisMetaStoreManager metaStoreManager,
       String principalName,
       PrincipalWithCredentialsCredentials credentials,
@@ -370,17 +384,15 @@ public abstract class PolarisAuthzTestBase {
             CatalogProperties.FILE_IO_IMPL, "org.apache.iceberg.inmemory.InMemoryFileIO"));
   }
 
-  public class TestPolarisCallContextCatalogFactory extends PolarisCallContextCatalogFactory {
-    public TestPolarisCallContextCatalogFactory() {
-      super(
-          new RealmEntityManagerFactory() {
-            @Override
-            public PolarisEntityManager getOrCreateEntityManager(RealmContext realmContext) {
-              return entityManager;
-            }
-          },
-          Mockito.mock(),
-          new DefaultFileIOFactory());
+  @Vetoed
+  public static class TestPolarisCallContextCatalogFactory
+      extends PolarisCallContextCatalogFactory {
+
+    public TestPolarisCallContextCatalogFactory(
+        RealmEntityManagerFactory entityManagerFactory,
+        TaskExecutor taskExecutor,
+        FileIOFactory fileIOFactory) {
+      super(entityManagerFactory, taskExecutor, fileIOFactory);
     }
 
     @Override

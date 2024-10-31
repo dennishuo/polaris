@@ -18,19 +18,22 @@
  */
 package org.apache.polaris.service.catalog.io;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.io.FileIO;
+import org.apache.polaris.service.config.RuntimeCandidate;
 
 /** A {@link FileIOFactory} that translates WASB paths to ABFS ones */
-@JsonTypeName("wasb")
+@ApplicationScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.io.file-io-factory.type", stringValue = "wasb")
 public class WasbTranslatingFileIOFactory implements FileIOFactory {
   @Override
   public FileIO loadFileIO(String ioImpl, Map<String, String> properties) {
-    WasbTranslatingFileIO wrapped =
-        new WasbTranslatingFileIO(CatalogUtil.loadFileIO(ioImpl, properties, new Configuration()));
-    return wrapped;
+    return new WasbTranslatingFileIO(
+        CatalogUtil.loadFileIO(ioImpl, properties, new Configuration()));
   }
 }

@@ -18,34 +18,40 @@
  */
 package org.apache.polaris.service.auth;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.Optional;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.context.CallContext;
-import org.apache.polaris.service.config.HasEntityManagerFactory;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.config.RuntimeCandidate;
 
+@ApplicationScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.authentication.type", stringValue = "default")
 public class DefaultPolarisAuthenticator extends BasePolarisAuthenticator {
-  private TokenBrokerFactory tokenBrokerFactory;
+
+  private final TokenBrokerFactory tokenBrokerFactory;
+
+  // Required for CDI
+  public DefaultPolarisAuthenticator() {
+    this(null, null, null);
+  }
+
+  @Inject
+  public DefaultPolarisAuthenticator(
+      RealmEntityManagerFactory entityManagerFactory,
+      TokenBrokerFactory tokenBrokerFactory,
+      CallContext callContext) {
+    super(entityManagerFactory, callContext);
+    this.tokenBrokerFactory = tokenBrokerFactory;
+  }
 
   @Override
   public Optional<AuthenticatedPolarisPrincipal> authenticate(String credentials) {
-    TokenBroker handler =
-        tokenBrokerFactory.apply(CallContext.getCurrentContext().getRealmContext());
+    TokenBroker handler = tokenBrokerFactory.apply(callContext.getRealmContext());
     DecodedToken decodedToken = handler.verify(credentials);
     return getPrincipal(decodedToken);
-  }
-
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
-    super.setEntityManagerFactory(entityManagerFactory);
-    if (tokenBrokerFactory instanceof HasEntityManagerFactory) {
-      ((HasEntityManagerFactory) tokenBrokerFactory).setEntityManagerFactory(entityManagerFactory);
-    }
-  }
-
-  @JsonProperty("tokenBroker")
-  public void setTokenBroker(TokenBrokerFactory tokenBrokerFactory) {
-    this.tokenBrokerFactory = tokenBrokerFactory;
   }
 }

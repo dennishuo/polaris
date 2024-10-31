@@ -17,14 +17,12 @@
  * under the License.
  */
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
 
 plugins {
+  alias(libs.plugins.quarkus)
   alias(libs.plugins.openapi.generator)
   id("polaris-server")
-  id("polaris-license-report")
-  id("polaris-shadow-jar")
   id("application")
 }
 
@@ -36,45 +34,42 @@ dependencies {
   implementation("org.apache.iceberg:iceberg-core")
   implementation("org.apache.iceberg:iceberg-aws")
 
-  implementation(platform(libs.dropwizard.bom))
-  implementation("io.dropwizard:dropwizard-core")
-  implementation("io.dropwizard:dropwizard-auth")
-  implementation("io.dropwizard:dropwizard-json-logging")
+  implementation(platform(libs.quarkus.bom))
+  implementation("io.quarkus:quarkus-logging-json")
+  implementation("io.quarkus:quarkus-rest")
+  implementation("io.quarkus:quarkus-rest-jackson")
+  implementation("io.quarkus:quarkus-hibernate-validator")
+  implementation("io.quarkus:quarkus-smallrye-health")
+  implementation("io.quarkus:quarkus-micrometer")
+  implementation("io.quarkus:quarkus-opentelemetry")
+  implementation("io.quarkus:quarkus-container-image-docker")
+
+  compileOnly(libs.jakarta.enterprise.cdi.api)
+  compileOnly(libs.jakarta.inject.api)
+  compileOnly(libs.jakarta.validation.api)
+  compileOnly(libs.jakarta.ws.rs.api)
+
+  // TODO this will removed as soon as dropwizard will be removed
+  compileOnly(platform(libs.dropwizard.bom))
+  compileOnly("io.dropwizard:dropwizard-core")
+  testCompileOnly(platform(libs.dropwizard.bom))
+  testCompileOnly("io.dropwizard:dropwizard-core")
 
   implementation(platform(libs.jackson.bom))
-  implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml")
   implementation("com.fasterxml.jackson.core:jackson-annotations")
-
-  implementation(platform(libs.opentelemetry.bom))
-  implementation("io.opentelemetry:opentelemetry-api")
-  implementation("io.opentelemetry:opentelemetry-sdk-trace")
-  implementation("io.opentelemetry:opentelemetry-exporter-logging")
-  implementation(libs.opentelemetry.semconv)
+  implementation("com.fasterxml.jackson.core:jackson-core")
+  implementation("com.fasterxml.jackson.core:jackson-databind")
 
   implementation(libs.caffeine)
   implementation(libs.guava)
   implementation(libs.slf4j.api)
 
-  implementation(libs.prometheus.metrics.exporter.servlet.jakarta)
-  implementation(platform(libs.micrometer.bom))
-  implementation("io.micrometer:micrometer-core")
-  implementation("io.micrometer:micrometer-registry-prometheus")
-
-  compileOnly(libs.swagger.annotations)
-  compileOnly(libs.jetbrains.annotations)
-  compileOnly(libs.spotbugs.annotations)
-  implementation(libs.swagger.jaxrs)
-  implementation(libs.javax.annotation.api)
-
   implementation(libs.hadoop.client.api)
+  implementation(libs.hadoop.client.runtime)
 
   implementation(libs.auth0.jwt)
 
-  implementation(libs.logback.core)
   implementation(libs.bouncycastle.bcprov)
-
-  compileOnly(libs.jetbrains.annotations)
-  compileOnly(libs.spotbugs.annotations)
 
   implementation(platform(libs.google.cloud.storage.bom))
   implementation("com.google.cloud:google-cloud-storage")
@@ -83,12 +78,12 @@ dependencies {
   implementation("software.amazon.awssdk:iam-policy-builder")
   implementation("software.amazon.awssdk:s3")
 
+  implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
+
+  compileOnly(libs.swagger.annotations)
+
   testImplementation("org.apache.iceberg:iceberg-api:${libs.versions.iceberg.get()}:tests")
   testImplementation("org.apache.iceberg:iceberg-core:${libs.versions.iceberg.get()}:tests")
-  testImplementation("io.dropwizard:dropwizard-testing")
-  testImplementation(platform(libs.testcontainers.bom))
-  testImplementation("org.testcontainers:testcontainers")
-  testImplementation(libs.s3mock.testcontainers)
 
   testImplementation("org.apache.iceberg:iceberg-spark-3.5_2.12")
   testImplementation("org.apache.iceberg:iceberg-spark-extensions-3.5_2.12")
@@ -104,16 +99,14 @@ dependencies {
   testImplementation("software.amazon.awssdk:dynamodb")
 
   testImplementation(platform(libs.junit.bom))
-  testImplementation("org.junit.jupiter:junit-jupiter")
-  testImplementation(libs.assertj.core)
-  testImplementation(libs.mockito.core)
-  testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+  testImplementation(libs.bundles.junit.testing)
 
-  testRuntimeOnly(project(":polaris-eclipselink"))
-}
-
-if (project.properties.get("eclipseLink") == "true") {
-  dependencies { implementation(project(":polaris-eclipselink")) }
+  testImplementation(platform(libs.quarkus.bom))
+  testImplementation("io.quarkus:quarkus-junit5")
+  testImplementation("io.quarkus:quarkus-junit5-mockito")
+  testImplementation("io.quarkus:quarkus-rest-client")
+  testImplementation("io.quarkus:quarkus-rest-client-jackson")
+  testImplementation("io.rest-assured:rest-assured")
 }
 
 openApiGenerate {
@@ -207,56 +200,3 @@ listOf("sourcesJar", "compileJava").forEach { task ->
 sourceSets {
   main { java { srcDir(project.layout.buildDirectory.dir("generated/src/main/java")) } }
 }
-
-tasks.named<Test>("test").configure {
-  if (System.getenv("AWS_REGION") == null) {
-    environment("AWS_REGION", "us-west-2")
-  }
-  jvmArgs("--add-exports", "java.base/sun.nio.ch=ALL-UNNAMED")
-  useJUnitPlatform()
-  maxParallelForks = 4
-}
-
-tasks.register<JavaExec>("runApp").configure {
-  if (System.getenv("AWS_REGION") == null) {
-    environment("AWS_REGION", "us-west-2")
-  }
-  classpath = sourceSets["main"].runtimeClasspath
-  mainClass = "org.apache.polaris.service.PolarisApplication"
-  args("server", "$rootDir/polaris-server.yml")
-}
-
-application { mainClass = "org.apache.polaris.service.PolarisApplication" }
-
-tasks.named<Jar>("jar") {
-  manifest { attributes["Main-Class"] = "org.apache.polaris.service.PolarisApplication" }
-}
-
-tasks.register<Jar>("testJar") {
-  archiveClassifier.set("tests")
-  from(sourceSets.test.get().output)
-}
-
-val shadowJar =
-  tasks.named<ShadowJar>("shadowJar") {
-    manifest { attributes["Main-Class"] = "org.apache.polaris.service.PolarisApplication" }
-    mergeServiceFiles()
-    isZip64 = true
-    finalizedBy("startScripts")
-  }
-
-val startScripts =
-  tasks.named<CreateStartScripts>("startScripts") {
-    classpath = files(provider { shadowJar.get().archiveFileName })
-  }
-
-tasks.register<Sync>("prepareDockerDist") {
-  into(project.layout.buildDirectory.dir("docker-dist"))
-  from(startScripts) { into("bin") }
-  from(shadowJar) { into("lib") }
-  doFirst { delete(project.layout.buildDirectory.dir("regtest-dist")) }
-}
-
-tasks.named("build").configure { dependsOn("prepareDockerDist") }
-
-tasks.named("assemble").configure { dependsOn("testJar") }

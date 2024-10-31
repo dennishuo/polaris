@@ -18,12 +18,17 @@
  */
 package org.apache.polaris.service.task;
 
+import io.quarkus.runtime.Startup;
+import jakarta.annotation.Nonnull;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.entity.PolarisBaseEntity;
@@ -32,25 +37,35 @@ import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.TaskEntity;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
-import org.jetbrains.annotations.NotNull;
+import org.apache.polaris.service.config.TaskHandlerConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Given a list of registered {@link TaskHandler}s, execute tasks asynchronously with the provided
- * {@link CallContext}.
- */
+@ApplicationScoped
 public class TaskExecutorImpl implements TaskExecutor {
   private static final Logger LOGGER = LoggerFactory.getLogger(TaskExecutorImpl.class);
   public static final long TASK_RETRY_DELAY = 1000;
   private final ExecutorService executorService;
   private final MetaStoreManagerFactory metaStoreManagerFactory;
+  private final TaskFileIOSupplier fileIOSupplier;
   private final List<TaskHandler> taskHandlers = new ArrayList<>();
 
+  @Inject
   public TaskExecutorImpl(
-      ExecutorService executorService, MetaStoreManagerFactory metaStoreManagerFactory) {
-    this.executorService = executorService;
+      TaskHandlerConfiguration taskHandlerConfiguration,
+      MetaStoreManagerFactory metaStoreManagerFactory,
+      TaskFileIOSupplier fileIOSupplier) {
+    this.executorService = taskHandlerConfiguration.executorService();
     this.metaStoreManagerFactory = metaStoreManagerFactory;
+    this.fileIOSupplier = fileIOSupplier;
+  }
+
+  @Startup
+  public void init() {
+    addTaskHandler(new TableCleanupTaskHandler(this, metaStoreManagerFactory, fileIOSupplier));
+    addTaskHandler(
+        new ManifestFileCleanupTaskHandler(
+            fileIOSupplier, Executors.newVirtualThreadPerTaskExecutor()));
   }
 
   /**
@@ -72,7 +87,7 @@ public class TaskExecutorImpl implements TaskExecutor {
     tryHandleTask(taskEntityId, clone, null, 1);
   }
 
-  private @NotNull CompletableFuture<Void> tryHandleTask(
+  private @Nonnull CompletableFuture<Void> tryHandleTask(
       long taskEntityId, CallContext clone, Throwable e, int attempt) {
     if (attempt > 3) {
       return CompletableFuture.failedFuture(e);

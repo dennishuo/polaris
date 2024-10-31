@@ -18,34 +18,41 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
-import org.jetbrains.annotations.VisibleForTesting;
+import org.apache.polaris.service.config.RuntimeCandidate;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * Rate limiter that maps the request's realm identifier to its own TokenBucketRateLimiter, with its
  * own capacity.
  */
-@JsonTypeName("realm-token-bucket")
+@ApplicationScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.rate-limiter.type", stringValue = "realm-token-bucket")
 public class RealmTokenBucketRateLimiter implements RateLimiter {
   private final long requestsPerSecond;
-  private final long windowSeconds;
+  private final Duration window;
   private final Map<String, RateLimiter> perRealmLimiters;
+  private final Clock clock;
 
-  @VisibleForTesting
-  @JsonCreator
+  @Inject
   public RealmTokenBucketRateLimiter(
-      @JsonProperty("requestsPerSecond") final long requestsPerSecond,
-      @JsonProperty("windowSeconds") final long windowSeconds) {
+      @ConfigProperty(name = "polaris.rate-limiter.realm-token-bucket.requests-per-second")
+          long requestsPerSecond,
+      @ConfigProperty(name = "polaris.rate-limiter.realm-token-bucket.window") Duration window,
+      Clock clock) {
     this.requestsPerSecond = requestsPerSecond;
-    this.windowSeconds = windowSeconds;
+    this.window = window;
+    this.clock = clock;
     this.perRealmLimiters = new ConcurrentHashMap<>();
   }
 
@@ -69,13 +76,8 @@ public class RealmTokenBucketRateLimiter implements RateLimiter {
             (k) ->
                 new TokenBucketRateLimiter(
                     requestsPerSecond,
-                    Math.multiplyExact(requestsPerSecond, windowSeconds),
-                    getClock()))
+                    Math.multiplyExact(requestsPerSecond, window.getSeconds()),
+                    clock))
         .tryAcquire();
-  }
-
-  @VisibleForTesting
-  protected Clock getClock() {
-    return Clock.systemUTC();
   }
 }

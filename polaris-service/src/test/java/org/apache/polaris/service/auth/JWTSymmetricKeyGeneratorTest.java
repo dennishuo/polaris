@@ -80,7 +80,8 @@ public class JWTSymmetricKeyGeneratorTest {
             "principal");
     Mockito.when(metastoreManager.loadEntity(polarisCallContext, 0L, 1L))
         .thenReturn(new PolarisMetaStoreManager.EntityResult(principal));
-    TokenBroker generator = new JWTSymmetricKeyBroker(entityManager, 666, () -> "polaris");
+    TokenBroker generator =
+        new JWTSymmetricKeyBroker(entityManager, polarisCallContext, 666, () -> "polaris");
     TokenResponse token =
         generator.generateFromClientSecrets(
             clientId, mainSecret, TokenRequestValidator.CLIENT_CREDENTIALS, "PRINCIPAL_ROLE:TEST");

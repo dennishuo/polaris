@@ -18,28 +18,16 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.threeten.extra.MutableClock;
 
 /** RealmTokenBucketRateLimiter with a mock clock */
-@JsonTypeName("mock-realm-token-bucket")
 public class MockRealmTokenBucketRateLimiter extends RealmTokenBucketRateLimiter {
   public static MutableClock CLOCK = MutableClock.of(Instant.now(), ZoneOffset.UTC);
 
-  @JsonCreator
-  public MockRealmTokenBucketRateLimiter(
-      @JsonProperty("requestsPerSecond") final long requestsPerSecond,
-      @JsonProperty("windowSeconds") final long windowSeconds) {
-    super(requestsPerSecond, windowSeconds);
-  }
-
-  @Override
-  protected Clock getClock() {
-    return CLOCK;
+  public MockRealmTokenBucketRateLimiter(long requestsPerSecond, Duration window) {
+    super(requestsPerSecond, window, CLOCK);
   }
 }

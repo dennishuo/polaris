@@ -18,36 +18,28 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import static org.apache.polaris.service.context.DefaultContextResolver.REALM_PROPERTY_KEY;
+import static org.apache.polaris.service.context.DefaultRealmContextResolver.REALM_PROPERTY_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
 import java.util.function.Consumer;
-import org.apache.polaris.service.config.PolarisApplicationConfig;
+import org.apache.polaris.service.test.PolarisIntegrationTestHelper;
 
 /** Common test utils for testing rate limiting */
 public class TestUtil {
-  /**
-   * Constructs a function that makes a request to list all principal roles and asserts the status
-   * of the response. This is a relatively simple type of request that can be used for validating
-   * whether the rate limiter intervenes.
-   */
-  public static Consumer<Response.Status> constructRequestAsserter(
-      DropwizardAppExtension<PolarisApplicationConfig> dropwizardAppExtension,
-      String userToken,
-      String realm) {
+  public static Consumer<Status> constructRequestAsserter(PolarisIntegrationTestHelper testHelper) {
     return (Response.Status status) -> {
       try (Response response =
-          dropwizardAppExtension
-              .client()
+          testHelper
+              .client
               .target(
                   String.format(
                       "http://localhost:%d/api/management/v1/principal-roles",
-                      dropwizardAppExtension.getLocalPort()))
+                      testHelper.localPort))
               .request("application/json")
-              .header("Authorization", "Bearer " + userToken)
-              .header(REALM_PROPERTY_KEY, realm)
+              .header("Authorization", "Bearer " + testHelper.adminToken)
+              .header(REALM_PROPERTY_KEY, testHelper.realm)
               .get()) {
         assertThat(response).returns(status.getStatusCode(), Response::getStatus);
       }

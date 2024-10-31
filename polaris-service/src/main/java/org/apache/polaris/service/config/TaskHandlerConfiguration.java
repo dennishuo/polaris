@@ -19,24 +19,25 @@
 package org.apache.polaris.service.config;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+@ApplicationScoped
 public class TaskHandlerConfiguration {
-  private int poolSize = 10;
-  private boolean fixedSize = true;
-  private String threadNamePattern = "taskHandler-%d";
 
-  public void setPoolSize(int poolSize) {
+  private final int poolSize;
+  private final boolean fixedSize;
+  private final String threadNamePattern;
+
+  public TaskHandlerConfiguration(
+      @ConfigProperty(name = "polaris.tasks.pool-size") int poolSize,
+      @ConfigProperty(name = "polaris.tasks.fixed-size") boolean fixedSize,
+      @ConfigProperty(name = "polaris.tasks.thread-name-pattern") String threadNamePattern) {
     this.poolSize = poolSize;
-  }
-
-  public void setFixedSize(boolean fixedSize) {
     this.fixedSize = fixedSize;
-  }
-
-  public void setThreadNamePattern(String threadNamePattern) {
     this.threadNamePattern = threadNamePattern;
   }
 

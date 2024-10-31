@@ -27,7 +27,7 @@ import org.threeten.extra.MutableClock;
 public class RealmTokenBucketRateLimiterTest {
   @Test
   void testDifferentBucketsDontTouch() {
-    RateLimiter rateLimiter = new MockRealmTokenBucketRateLimiter(10, 10);
+    RateLimiter rateLimiter = new MockRealmTokenBucketRateLimiter(10, Duration.ofSeconds(10));
     RateLimitResultAsserter asserter = new RateLimitResultAsserter(rateLimiter);
     MutableClock clock = MockRealmTokenBucketRateLimiter.CLOCK;
 

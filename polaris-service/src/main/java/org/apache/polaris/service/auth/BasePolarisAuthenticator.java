@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.iceberg.exceptions.NotAuthorizedException;
-import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
@@ -38,33 +37,30 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Base implementation of {@link DiscoverableAuthenticator} constructs a {@link
- * AuthenticatedPolarisPrincipal} from the token parsed by subclasses. The {@link
- * AuthenticatedPolarisPrincipal} is read from the {@link PolarisMetaStoreManager} for the current
- * {@link RealmContext}. If the token defines a non-empty set of scopes, only the principal roles
- * specified in the scopes will be active for the current principal. Only the grants assigned to
- * these roles will be active in the current request.
+ * Base implementation of {@link Authenticator} constructs a {@link AuthenticatedPolarisPrincipal}
+ * from the token parsed by subclasses. The {@link AuthenticatedPolarisPrincipal} is read from the
+ * {@link PolarisMetaStoreManager} for the current {@link RealmContext}. If the token defines a
+ * non-empty set of scopes, only the principal roles specified in the scopes will be active for the
+ * current principal. Only the grants assigned to these roles will be active in the current request.
  */
 public abstract class BasePolarisAuthenticator
-    implements DiscoverableAuthenticator<String, AuthenticatedPolarisPrincipal> {
+    implements Authenticator<String, AuthenticatedPolarisPrincipal> {
   public static final String PRINCIPAL_ROLE_ALL = "PRINCIPAL_ROLE:ALL";
   public static final String PRINCIPAL_ROLE_PREFIX = "PRINCIPAL_ROLE:";
   private static final Logger LOGGER = LoggerFactory.getLogger(BasePolarisAuthenticator.class);
 
-  protected RealmEntityManagerFactory entityManagerFactory;
+  protected final RealmEntityManagerFactory entityManagerFactory;
+  protected final CallContext callContext;
 
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
+  protected BasePolarisAuthenticator(
+      RealmEntityManagerFactory entityManagerFactory, CallContext callContext) {
     this.entityManagerFactory = entityManagerFactory;
-  }
-
-  public PolarisCallContext getCurrentPolarisContext() {
-    return CallContext.getCurrentContext().getPolarisCallContext();
+    this.callContext = callContext;
   }
 
   protected Optional<AuthenticatedPolarisPrincipal> getPrincipal(DecodedToken tokenInfo) {
     LOGGER.debug("Resolving principal for tokenInfo client_id={}", tokenInfo.getClientId());
-    RealmContext realmContext = CallContext.getCurrentContext().getRealmContext();
+    RealmContext realmContext = callContext.getRealmContext();
     PolarisMetaStoreManager metaStoreManager =
         entityManagerFactory.getOrCreateEntityManager(realmContext).getMetaStoreManager();
     PolarisEntity principal;
@@ -73,10 +69,10 @@ public abstract class BasePolarisAuthenticator
           tokenInfo.getPrincipalId() > 0
               ? PolarisEntity.of(
                   metaStoreManager.loadEntity(
-                      getCurrentPolarisContext(), 0L, tokenInfo.getPrincipalId()))
+                      callContext.getPolarisCallContext(), 0L, tokenInfo.getPrincipalId()))
               : PolarisEntity.of(
                   metaStoreManager.readEntityByName(
-                      getCurrentPolarisContext(),
+                      callContext.getPolarisCallContext(),
                       null,
                       PolarisEntityType.PRINCIPAL,
                       PolarisEntitySubType.NULL_SUBTYPE,
@@ -113,9 +109,7 @@ public abstract class BasePolarisAuthenticator
     AuthenticatedPolarisPrincipal authenticatedPrincipal =
         new AuthenticatedPolarisPrincipal(new PrincipalEntity(principal), activatedPrincipalRoles);
     LOGGER.debug("Populating authenticatedPrincipal into CallContext: {}", authenticatedPrincipal);
-    CallContext.getCurrentContext()
-        .contextVariables()
-        .put(CallContext.AUTHENTICATED_PRINCIPAL, authenticatedPrincipal);
+    callContext.contextVariables().put(CallContext.AUTHENTICATED_PRINCIPAL, authenticatedPrincipal);
     return Optional.of(authenticatedPrincipal);
   }
 }

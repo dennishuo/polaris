@@ -18,6 +18,7 @@
  */
 package org.apache.polaris.service.admin;
 
+import io.quarkus.test.junit.QuarkusTest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,7 @@ import org.apache.polaris.core.entity.PrincipalRoleEntity;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+@QuarkusTest
 public class PolarisAdminServiceAuthzTest extends PolarisAuthzTestBase {
   private PolarisAdminService newTestAdminService() {
     return newTestAdminService(Set.of());

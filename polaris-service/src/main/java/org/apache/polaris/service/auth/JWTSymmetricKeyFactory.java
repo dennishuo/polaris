@@ -18,58 +18,71 @@
  */
 package org.apache.polaris.service.auth;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.RequestScoped;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Optional;
 import java.util.function.Supplier;
+import org.apache.polaris.core.PolarisCallContext;
+import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
-import org.apache.polaris.service.config.HasEntityManagerFactory;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.config.RuntimeCandidate;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@JsonTypeName("symmetric-key")
-public class JWTSymmetricKeyFactory implements TokenBrokerFactory, HasEntityManagerFactory {
-  private RealmEntityManagerFactory realmEntityManagerFactory;
-  private int maxTokenGenerationInSeconds = 3600;
-  private String file;
-  private String secret;
+@RequestScoped
+@RuntimeCandidate
+@LookupIfProperty(
+    name = "polaris.authentication.token-broker-factory.type",
+    stringValue = "symmetric-key")
+public class JWTSymmetricKeyFactory implements TokenBrokerFactory {
+
+  private final RealmEntityManagerFactory realmEntityManagerFactory;
+  private final PolarisCallContext polarisCallContext;
+  private final Duration maxTokenGenerationInSeconds;
+
+  private final Path file;
+  private final String secret;
+
+  public JWTSymmetricKeyFactory(
+      RealmEntityManagerFactory realmEntityManagerFactory,
+      CallContext callContext,
+      @ConfigProperty(name = "polaris.authentication.token-broker-factory.max-token-generation")
+          Duration maxTokenGenerationInSeconds,
+      @ConfigProperty(name = "polaris.authentication.token-broker-factory.symmetric-key.secret")
+          Optional<String> secret,
+      @ConfigProperty(name = "polaris.authentication.token-broker-factory.symmetric-key.file")
+          Optional<Path> file) {
+    this.realmEntityManagerFactory = realmEntityManagerFactory;
+    this.polarisCallContext = callContext.getPolarisCallContext();
+    this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
+    this.secret = secret.orElse(null);
+    this.file = file.orElse(null);
+    if (this.file == null && this.secret == null) {
+      throw new IllegalStateException("Either file or secret must be set");
+    }
+  }
 
   @Override
   public TokenBroker apply(RealmContext realmContext) {
-    if (file == null && secret == null) {
-      throw new IllegalStateException("Either file or secret must be set");
-    }
     Supplier<String> secretSupplier = secret != null ? () -> secret : readSecretFromDisk();
     return new JWTSymmetricKeyBroker(
         realmEntityManagerFactory.getOrCreateEntityManager(realmContext),
-        maxTokenGenerationInSeconds,
+        polarisCallContext,
+        (int) maxTokenGenerationInSeconds.toSeconds(),
         secretSupplier);
   }
 
   private Supplier<String> readSecretFromDisk() {
     return () -> {
       try {
-        return Files.readString(Paths.get(file));
+        return Files.readString(file);
       } catch (IOException e) {
         throw new RuntimeException("Failed to read secret from file: " + file, e);
       }
     };
-  }
-
-  public void setMaxTokenGenerationInSeconds(int maxTokenGenerationInSeconds) {
-    this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
-  }
-
-  public void setFile(String file) {
-    this.file = file;
-  }
-
-  public void setSecret(String secret) {
-    this.secret = secret;
-  }
-
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
-    this.realmEntityManagerFactory = entityManagerFactory;
   }
 }

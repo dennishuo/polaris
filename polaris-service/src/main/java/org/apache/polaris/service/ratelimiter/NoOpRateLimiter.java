@@ -18,10 +18,14 @@
  */
 package org.apache.polaris.service.ratelimiter;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.apache.polaris.service.config.RuntimeCandidate;
 
 /** Rate limiter that always allows the request */
-@JsonTypeName("no-op")
+@ApplicationScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.rate-limiter.type", stringValue = "no-op")
 public class NoOpRateLimiter implements RateLimiter {
   @Override
   public boolean tryAcquire() {

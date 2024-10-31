@@ -114,7 +114,8 @@ public class JWTRSAKeyPairTest {
 
     DefaultConfigurationStore store = new DefaultConfigurationStore(config);
     PolarisCallContext polarisCallContext = new PolarisCallContext(null, null, store, null);
-    CallContext.setCurrentContext(getTestCallContext(polarisCallContext));
+    CallContext callContext = getTestCallContext(polarisCallContext);
+    CallContext.setCurrentContext(callContext);
     PolarisMetaStoreManager metastoreManager = Mockito.mock(PolarisMetaStoreManager.class);
     String mainSecret = "client-secret";
     PolarisPrincipalSecrets principalSecrets =
@@ -133,14 +134,14 @@ public class JWTRSAKeyPairTest {
             "principal");
     Mockito.when(metastoreManager.loadEntity(polarisCallContext, 0L, 1L))
         .thenReturn(new PolarisMetaStoreManager.EntityResult(principal));
-    TokenBroker tokenBroker = new JWTRSAKeyPair(entityManager, 420);
+    LocalRSAKeyProvider provider = new LocalRSAKeyProvider(callContext);
+    TokenBroker tokenBroker = new JWTRSAKeyPair(entityManager, polarisCallContext, provider, 420);
     TokenResponse token =
         tokenBroker.generateFromClientSecrets(
             clientId, mainSecret, TokenRequestValidator.CLIENT_CREDENTIALS, scope);
     assertThat(token).isNotNull();
     assertThat(token.getExpiresIn()).isEqualTo(420);
 
-    LocalRSAKeyProvider provider = new LocalRSAKeyProvider();
     assertThat(provider.getPrivateKey()).isNotNull();
     assertThat(provider.getPublicKey()).isNotNull();
     JWTVerifier verifier =

@@ -22,6 +22,8 @@ import static org.apache.polaris.service.catalog.AccessDelegationMode.VENDED_CRE
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import java.net.URLEncoder;
@@ -67,25 +69,30 @@ import org.apache.polaris.service.types.NotificationRequest;
  * org.apache.iceberg.rest.CatalogHandlers} after finding the appropriate {@link Catalog} for the
  * current {@link RealmContext}.
  */
+@RequestScoped
 public class IcebergCatalogAdapter
     implements IcebergRestCatalogApiService, IcebergRestConfigurationApiService {
 
+  private final CallContext callContext;
   private final CallContextCatalogFactory catalogFactory;
   private final RealmEntityManagerFactory entityManagerFactory;
   private final PolarisAuthorizer polarisAuthorizer;
 
+  @Inject
   public IcebergCatalogAdapter(
+      CallContext callContext,
       CallContextCatalogFactory catalogFactory,
       RealmEntityManagerFactory entityManagerFactory,
       PolarisAuthorizer polarisAuthorizer) {
+    this.callContext = callContext;
     this.catalogFactory = catalogFactory;
     this.entityManagerFactory = entityManagerFactory;
     this.polarisAuthorizer = polarisAuthorizer;
+    CallContext.setCurrentContext(callContext);
   }
 
   private PolarisCatalogHandlerWrapper newHandlerWrapper(
       SecurityContext securityContext, String catalogName) {
-    CallContext callContext = CallContext.getCurrentContext();
     AuthenticatedPolarisPrincipal authenticatedPrincipal =
         (AuthenticatedPolarisPrincipal) securityContext.getUserPrincipal();
     if (authenticatedPrincipal == null) {
@@ -291,7 +298,7 @@ public class IcebergCatalogAdapter
   public Response renameTable(
       String prefix, RenameTableRequest renameTableRequest, SecurityContext securityContext) {
     newHandlerWrapper(securityContext, prefix).renameTable(renameTableRequest);
-    return Response.ok(javax.ws.rs.core.Response.Status.NO_CONTENT).build();
+    return Response.ok(Response.Status.NO_CONTENT).build();
   }
 
   @Override
@@ -436,8 +443,7 @@ public class IcebergCatalogAdapter
     // TODO: Push this down into PolarisCatalogHandlerWrapper for authorizing "any" catalog
     // role in this catalog.
     PolarisEntityManager entityManager =
-        entityManagerFactory.getOrCreateEntityManager(
-            CallContext.getCurrentContext().getRealmContext());
+        entityManagerFactory.getOrCreateEntityManager(callContext.getRealmContext());
     AuthenticatedPolarisPrincipal authenticatedPrincipal =
         (AuthenticatedPolarisPrincipal) securityContext.getUserPrincipal();
     if (authenticatedPrincipal == null) {
@@ -447,8 +453,7 @@ public class IcebergCatalogAdapter
       throw new BadRequestException("Please specify a warehouse");
     }
     Resolver resolver =
-        entityManager.prepareResolver(
-            CallContext.getCurrentContext(), authenticatedPrincipal, warehouse);
+        entityManager.prepareResolver(callContext, authenticatedPrincipal, warehouse);
     ResolverStatus resolverStatus = resolver.resolveAll();
     if (!resolverStatus.getStatus().equals(ResolverStatus.StatusEnum.SUCCESS)) {
       throw new NotFoundException("Unable to find warehouse %s", warehouse);

@@ -21,6 +21,8 @@ package org.apache.polaris.service.task;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatPredicate;
 
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,19 +44,14 @@ import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
 import org.apache.polaris.core.entity.AsyncTaskType;
 import org.apache.polaris.core.entity.TaskEntity;
-import org.apache.polaris.service.persistence.InMemoryPolarisMetaStoreManagerFactory;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.junit.jupiter.api.Test;
 
+@QuarkusTest
 class ManifestFileCleanupTaskHandlerTest {
-  private InMemoryPolarisMetaStoreManagerFactory metaStoreManagerFactory;
-  private RealmContext realmContext;
+  @Inject MetaStoreManagerFactory metaStoreManagerFactory;
 
-  @BeforeEach
-  void setUp() {
-    metaStoreManagerFactory = new InMemoryPolarisMetaStoreManagerFactory();
-    realmContext = () -> "realmName";
-  }
+  private final RealmContext realmContext = () -> "realmName";
 
   @Test
   public void testCleanupFileNotExists() throws IOException {

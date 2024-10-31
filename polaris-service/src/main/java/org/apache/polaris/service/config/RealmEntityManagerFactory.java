@@ -18,6 +18,8 @@
  */
 package org.apache.polaris.service.config;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.polaris.core.context.RealmContext;
@@ -26,19 +28,18 @@ import org.apache.polaris.core.persistence.PolarisEntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Gets or creates PolarisEntityManager instances based on config values and RealmContext. */
+@ApplicationScoped
 public class RealmEntityManagerFactory {
-  private static final Logger LOGGER = LoggerFactory.getLogger(RealmEntityManagerFactory.class);
+
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(RealmEntityManagerFactory.class.getName());
+
   private final MetaStoreManagerFactory metaStoreManagerFactory;
 
   // Key: realmIdentifier
   private final Map<String, PolarisEntityManager> cachedEntityManagers = new HashMap<>();
 
-  // Subclasses for test injection.
-  protected RealmEntityManagerFactory() {
-    this.metaStoreManagerFactory = null;
-  }
-
+  @Inject
   public RealmEntityManagerFactory(MetaStoreManagerFactory metaStoreManagerFactory) {
     this.metaStoreManagerFactory = metaStoreManagerFactory;
   }
@@ -51,6 +52,7 @@ public class RealmEntityManagerFactory {
     if (entityManagerInstance == null) {
       LOGGER.info("Initializing new PolarisEntityManager for realm {}", realm);
 
+      // TODO remove Discoverable here
       entityManagerInstance =
           new PolarisEntityManager(
               metaStoreManagerFactory.getOrCreateMetaStoreManager(context),

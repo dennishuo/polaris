@@ -18,6 +18,8 @@
  */
 package org.apache.polaris.service.context;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +39,9 @@ import org.apache.polaris.service.task.TaskExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@ApplicationScoped
 public class PolarisCallContextCatalogFactory implements CallContextCatalogFactory {
+
   private static final Logger LOGGER =
       LoggerFactory.getLogger(PolarisCallContextCatalogFactory.class);
 
@@ -48,6 +52,7 @@ public class PolarisCallContextCatalogFactory implements CallContextCatalogFacto
   private final TaskExecutor taskExecutor;
   private final FileIOFactory fileIOFactory;
 
+  @Inject
   public PolarisCallContextCatalogFactory(
       RealmEntityManagerFactory entityManagerFactory,
       TaskExecutor taskExecutor,

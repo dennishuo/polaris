@@ -18,29 +18,46 @@
  */
 package org.apache.polaris.service.auth;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.RequestScoped;
+import java.time.Duration;
+import org.apache.polaris.core.PolarisCallContext;
+import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.context.RealmContext;
-import org.apache.polaris.service.config.HasEntityManagerFactory;
 import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.config.RuntimeCandidate;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-@JsonTypeName("rsa-key-pair")
-public class JWTRSAKeyPairFactory implements TokenBrokerFactory, HasEntityManagerFactory {
-  private int maxTokenGenerationInSeconds = 3600;
-  private RealmEntityManagerFactory realmEntityManagerFactory;
+@RequestScoped
+@RuntimeCandidate
+@LookupIfProperty(
+    name = "polaris.authentication.token-broker-factory.type",
+    stringValue = "rsa-key-pair")
+public class JWTRSAKeyPairFactory implements TokenBrokerFactory {
 
-  public void setMaxTokenGenerationInSeconds(int maxTokenGenerationInSeconds) {
+  private final RealmEntityManagerFactory realmEntityManagerFactory;
+  private final PolarisCallContext polarisCallContext;
+  private final Duration maxTokenGenerationInSeconds;
+  private final KeyProvider keyProvider;
+
+  public JWTRSAKeyPairFactory(
+      RealmEntityManagerFactory realmEntityManagerFactory,
+      CallContext callContext,
+      KeyProvider keyProvider,
+      @ConfigProperty(name = "polaris.authentication.token-broker-factory.max-token-generation")
+          Duration maxTokenGenerationInSeconds) {
+    this.polarisCallContext = callContext.getPolarisCallContext();
     this.maxTokenGenerationInSeconds = maxTokenGenerationInSeconds;
+    this.realmEntityManagerFactory = realmEntityManagerFactory;
+    this.keyProvider = keyProvider;
   }
 
   @Override
   public TokenBroker apply(RealmContext realmContext) {
     return new JWTRSAKeyPair(
         realmEntityManagerFactory.getOrCreateEntityManager(realmContext),
-        maxTokenGenerationInSeconds);
-  }
-
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
-    this.realmEntityManagerFactory = entityManagerFactory;
+        polarisCallContext,
+        keyProvider,
+        (int) maxTokenGenerationInSeconds.toSeconds());
   }
 }

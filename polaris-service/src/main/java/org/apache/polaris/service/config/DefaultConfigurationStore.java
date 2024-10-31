@@ -18,21 +18,81 @@
  */
 package org.apache.polaris.service.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.Nullable;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisConfigurationStore;
-import org.jetbrains.annotations.Nullable;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+@ApplicationScoped
 public class DefaultConfigurationStore implements PolarisConfigurationStore {
+
   private final Map<String, Object> properties;
 
-  public DefaultConfigurationStore(Map<String, Object> properties) {
-    this.properties = properties;
+  // FIXME the whole PolarisConfigurationStore + PolarisConfiguration needs to be refactored
+  // to become a proper Quarkus configuration object
+  @Inject
+  public DefaultConfigurationStore(
+      ObjectMapper objectMapper,
+      @ConfigProperty(name = "polaris.config.feature-configurations")
+          Map<String, String> properties) {
+    this(convertMap(objectMapper, properties));
   }
 
-  @SuppressWarnings("unchecked")
+  public DefaultConfigurationStore(Map<String, Object> properties) {
+    this.properties = Map.copyOf(properties);
+  }
+
+  private static Map<String, Object> convertMap(
+      ObjectMapper objectMapper, Map<String, String> properties) {
+    Map<String, Object> m = new HashMap<>();
+    for (String configName : properties.keySet()) {
+      String json = properties.get(configName);
+      try {
+        JsonNode node = objectMapper.readTree(json);
+        m.put(configName, configValue(node));
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(
+            "Invalid JSON value for feature configuration: " + configName, e);
+      }
+    }
+    return m;
+  }
+
+  private static Object configValue(JsonNode node) {
+    return switch (node.getNodeType()) {
+      case BOOLEAN -> node.asBoolean();
+      case STRING -> node.asText();
+      case NUMBER ->
+          switch (node.numberType()) {
+            case INT, LONG -> node.asLong();
+            case FLOAT, DOUBLE -> node.asDouble();
+            default ->
+                throw new IllegalArgumentException("Unsupported number type: " + node.numberType());
+          };
+      case ARRAY -> {
+        List<Object> list = new ArrayList<>();
+        node.elements().forEachRemaining(n -> list.add(configValue(n)));
+        yield List.copyOf(list);
+      }
+      default ->
+          throw new IllegalArgumentException(
+              "Unsupported feature configuration JSON type: " + node.getNodeType());
+    };
+  }
+
   @Override
   public <T> @Nullable T getConfiguration(PolarisCallContext ctx, String configName) {
-    return (T) properties.get(configName);
+    @SuppressWarnings("unchecked")
+    T o = (T) properties.get(configName);
+    return o;
   }
 }

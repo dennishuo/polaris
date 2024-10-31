@@ -23,20 +23,26 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
-import io.dropwizard.jersey.errors.LoggingExceptionMapper;
+import io.dropwizard.jersey.errors.ErrorMessage;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.iceberg.rest.responses.ErrorResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Override of the default JsonProcessingExceptionMapper to provide an Iceberg ErrorResponse with
- * the exception details. This code mostly comes from Dropwizard's {@link
- * io.dropwizard.jersey.jackson.JsonProcessingExceptionMapper}
- */
+/** See Dropwizard's {@code io.dropwizard.jersey.jackson.JsonProcessingExceptionMapper} */
 @Provider
 public final class IcebergJsonProcessingExceptionMapper
-    extends LoggingExceptionMapper<JsonProcessingException> {
+    implements ExceptionMapper<JsonProcessingException> {
+
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(IcebergJsonProcessingExceptionMapper.class);
+
   @Override
   public Response toResponse(JsonProcessingException exception) {
     /*
@@ -44,13 +50,23 @@ public final class IcebergJsonProcessingExceptionMapper
      */
     if (exception instanceof JsonGenerationException
         || exception instanceof InvalidDefinitionException) {
-      return super.toResponse(exception); // LoggingExceptionMapper will log exception
+      long id = ThreadLocalRandom.current().nextLong();
+      LOGGER.error(String.format(Locale.ROOT, "Error handling a request: %016x", id), exception);
+      String message =
+          String.format(
+              Locale.ROOT,
+              "There was an error processing your request. It has been logged (ID %016x).",
+              id);
+      return Response.status(Status.INTERNAL_SERVER_ERROR.getStatusCode())
+          .type(MediaType.APPLICATION_JSON_TYPE)
+          .entity(new ErrorMessage(message))
+          .build();
     }
 
     /*
      * Otherwise, it's those pesky users.
      */
-    logger.info("Unable to process JSON: {}", exception.getMessage());
+    LOGGER.info("Unable to process JSON: {}", exception.getMessage());
 
     String messagePrefix =
         switch (exception) {

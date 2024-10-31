@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import jakarta.annotation.Nonnull;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
@@ -103,8 +104,6 @@ import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.task.TaskExecutor;
 import org.apache.polaris.service.types.NotificationRequest;
 import org.apache.polaris.service.types.NotificationType;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.TestOnly;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -208,7 +207,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
     return catalogName;
   }
 
-  @TestOnly
+  @VisibleForTesting
   FileIO getIo() {
     return catalogFileIO;
   }
@@ -262,7 +261,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
             CatalogProperties.FILE_IO_IMPL);
       }
     }
-    this.closeableGroup = CallContext.getCurrentContext().closeables();
+    this.closeableGroup = callContext.closeables();
     closeableGroup.addCloseable(metricsReporter());
     closeableGroup.setSuppressCloseFailure(true);
 
@@ -445,8 +444,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
           "Scheduled cleanup task {} for table {}",
           dropEntityResult.getCleanupTaskId(),
           tableIdentifier);
-      taskExecutor.addTaskHandlerContext(
-          dropEntityResult.getCleanupTaskId(), CallContext.getCurrentContext());
+      taskExecutor.addTaskHandlerContext(dropEntityResult.getCleanupTaskId(), callContext);
     }
 
     return true;
@@ -549,7 +547,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
     }
   }
 
-  private static @NotNull String resolveLocationForPath(List<PolarisEntity> parentPath) {
+  private static @Nonnull String resolveLocationForPath(List<PolarisEntity> parentPath) {
     // always take the first object. If it has the base-location, stop there
     AtomicBoolean foundBaseLocation = new AtomicBoolean(false);
     return parentPath.reversed().stream()
@@ -841,7 +839,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
     return specifiedTableLikeLocation;
   }
 
-  private @NotNull Optional<PolarisEntity> findStorageInfo(TableIdentifier tableIdentifier) {
+  private @Nonnull Optional<PolarisEntity> findStorageInfo(TableIdentifier tableIdentifier) {
     PolarisResolvedPathWrapper resolvedTableEntities =
         resolvedEntityView.getResolvedPath(tableIdentifier, PolarisEntitySubType.TABLE);
 
@@ -1153,15 +1151,14 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
             siblingLocation -> {
               if (targetLocation.isChildOf(siblingLocation)
                   || siblingLocation.isChildOf(targetLocation)) {
-                throw new org.apache.iceberg.exceptions.ForbiddenException(
+                throw new ForbiddenException(
                     "Unable to create table at location '%s' because it conflicts with existing table or namespace at location '%s'",
                     targetLocation, siblingLocation);
               }
             });
   }
 
-  private class BasePolarisCatalogTableBuilder
-      extends BaseMetastoreViewCatalog.BaseMetastoreViewCatalogTableBuilder {
+  private class BasePolarisCatalogTableBuilder extends BaseMetastoreViewCatalogTableBuilder {
 
     public BasePolarisCatalogTableBuilder(TableIdentifier identifier, Schema schema) {
       super(identifier, schema);
@@ -1173,7 +1170,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
     }
   }
 
-  private class BasePolarisCatalogViewBuilder extends BaseMetastoreViewCatalog.BaseViewBuilder {
+  private class BasePolarisCatalogViewBuilder extends BaseViewBuilder {
 
     public BasePolarisCatalogViewBuilder(TableIdentifier identifier) {
       super(identifier);
@@ -1418,7 +1415,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
     }
   }
 
-  private static @NotNull Optional<PolarisEntity> findStorageInfoFromHierarchy(
+  private static @Nonnull Optional<PolarisEntity> findStorageInfoFromHierarchy(
       PolarisResolvedPathWrapper resolvedStorageEntity) {
     Optional<PolarisEntity> storageInfoEntity =
         resolvedStorageEntity.getRawFullPath().reversed().stream()
@@ -1822,7 +1819,7 @@ public class BasePolarisCatalog extends BaseMetastoreViewCatalog
   }
 
   @SuppressWarnings("FormatStringAnnotation")
-  private @NotNull PolarisMetaStoreManager.DropEntityResult dropTableLike(
+  private @Nonnull PolarisMetaStoreManager.DropEntityResult dropTableLike(
       PolarisEntitySubType subType,
       TableIdentifier identifier,
       Map<String, String> storageProperties,

@@ -18,7 +18,8 @@
  */
 package org.apache.polaris.service.admin;
 
-import jakarta.inject.Inject;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -82,8 +83,6 @@ import org.apache.polaris.core.storage.PolarisStorageConfigurationInfo;
 import org.apache.polaris.core.storage.StorageLocation;
 import org.apache.polaris.core.storage.aws.AwsStorageConfigurationInfo;
 import org.apache.polaris.core.storage.azure.AzureStorageConfigurationInfo;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,7 +107,6 @@ public class PolarisAdminService {
   // Initialized in the authorize methods.
   private PolarisResolutionManifest resolutionManifest = null;
 
-  @Inject
   public PolarisAdminService(
       CallContext callContext,
       PolarisEntityManager entityManager,
@@ -601,7 +599,7 @@ public class PolarisAdminService {
     }
   }
 
-  public @NotNull CatalogEntity getCatalog(String name) {
+  public @Nonnull CatalogEntity getCatalog(String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_CATALOG;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.CATALOG);
 
@@ -661,7 +659,7 @@ public class PolarisAdminService {
     }
   }
 
-  public @NotNull CatalogEntity updateCatalog(String name, UpdateCatalogRequest updateRequest) {
+  public @Nonnull CatalogEntity updateCatalog(String name, UpdateCatalogRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_CATALOG;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.CATALOG);
 
@@ -793,7 +791,7 @@ public class PolarisAdminService {
     }
   }
 
-  public @NotNull PrincipalEntity getPrincipal(String name) {
+  public @Nonnull PrincipalEntity getPrincipal(String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_PRINCIPAL;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL);
 
@@ -801,7 +799,7 @@ public class PolarisAdminService {
         .orElseThrow(() -> new NotFoundException("Principal %s not found", name));
   }
 
-  public @NotNull PrincipalEntity updatePrincipal(
+  public @Nonnull PrincipalEntity updatePrincipal(
       String name, UpdatePrincipalRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_PRINCIPAL;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL);
@@ -836,7 +834,7 @@ public class PolarisAdminService {
     return returnedEntity;
   }
 
-  private @NotNull PrincipalWithCredentials rotateOrResetCredentialsHelper(
+  private @Nonnull PrincipalWithCredentials rotateOrResetCredentialsHelper(
       String principalName, boolean shouldReset) {
     PrincipalEntity currentPrincipalEntity =
         findPrincipalByName(principalName)
@@ -878,14 +876,14 @@ public class PolarisAdminService {
             newSecrets.getPrincipalClientId(), newSecrets.getMainSecret()));
   }
 
-  public @NotNull PrincipalWithCredentials rotateCredentials(String principalName) {
+  public @Nonnull PrincipalWithCredentials rotateCredentials(String principalName) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.ROTATE_CREDENTIALS;
     authorizeBasicTopLevelEntityOperationOrThrow(op, principalName, PolarisEntityType.PRINCIPAL);
 
     return rotateOrResetCredentialsHelper(principalName, false);
   }
 
-  public @NotNull PrincipalWithCredentials resetCredentials(String principalName) {
+  public @Nonnull PrincipalWithCredentials resetCredentials(String principalName) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.RESET_CREDENTIALS;
     authorizeBasicTopLevelEntityOperationOrThrow(op, principalName, PolarisEntityType.PRINCIPAL);
 
@@ -970,7 +968,7 @@ public class PolarisAdminService {
     }
   }
 
-  public @NotNull PrincipalRoleEntity getPrincipalRole(String name) {
+  public @Nonnull PrincipalRoleEntity getPrincipalRole(String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_PRINCIPAL_ROLE;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL_ROLE);
 
@@ -978,7 +976,7 @@ public class PolarisAdminService {
         .orElseThrow(() -> new NotFoundException("PrincipalRole %s not found", name));
   }
 
-  public @NotNull PrincipalRoleEntity updatePrincipalRole(
+  public @Nonnull PrincipalRoleEntity updatePrincipalRole(
       String name, UpdatePrincipalRoleRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_PRINCIPAL_ROLE;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.PRINCIPAL_ROLE);
@@ -1103,7 +1101,7 @@ public class PolarisAdminService {
     }
   }
 
-  public @NotNull CatalogRoleEntity getCatalogRole(String catalogName, String name) {
+  public @Nonnull CatalogRoleEntity getCatalogRole(String catalogName, String name) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_CATALOG_ROLE;
     authorizeBasicCatalogRoleOperationOrThrow(op, catalogName, name);
 
@@ -1111,7 +1109,7 @@ public class PolarisAdminService {
         .orElseThrow(() -> new NotFoundException("CatalogRole %s not found", name));
   }
 
-  public @NotNull CatalogRoleEntity updateCatalogRole(
+  public @Nonnull CatalogRoleEntity updateCatalogRole(
       String catalogName, String name, UpdateCatalogRoleRequest updateRequest) {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.UPDATE_CATALOG_ROLE;
     authorizeBasicCatalogRoleOperationOrThrow(op, catalogName, name);
@@ -1314,7 +1312,7 @@ public class PolarisAdminService {
    * @return list of grantees or securables matching the filter
    */
   private List<PolarisEntity> buildEntitiesFromGrantResults(
-      @NotNull PolarisMetaStoreManager.LoadGrantsResult grantList,
+      @Nonnull PolarisMetaStoreManager.LoadGrantsResult grantList,
       boolean grantees,
       @Nullable Function<PolarisGrantRecord, Boolean> grantFilter) {
     Map<Long, PolarisBaseEntity> granteeMap = grantList.getEntitiesAsMap();

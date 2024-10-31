@@ -20,7 +20,9 @@ package org.apache.polaris.service.auth;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.apache.commons.codec.binary.Base64;
@@ -28,23 +30,30 @@ import org.apache.hadoop.hdfs.web.oauth2.OAuth2Constants;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.apache.iceberg.rest.responses.OAuthTokenResponse;
 import org.apache.polaris.core.context.CallContext;
-import org.apache.polaris.service.config.HasEntityManagerFactory;
-import org.apache.polaris.service.config.OAuth2ApiService;
-import org.apache.polaris.service.config.RealmEntityManagerFactory;
+import org.apache.polaris.service.catalog.api.IcebergRestOAuth2ApiService;
+import org.apache.polaris.service.config.RuntimeCandidate;
 import org.apache.polaris.service.types.TokenType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Default implementation of the {@link OAuth2ApiService} that generates a JWT token for the client
- * if the client secret matches.
+ * Default implementation of the {@link IcebergRestOAuth2ApiService} that generates a JWT token for
+ * the client if the client secret matches.
  */
-@JsonTypeName("default")
-public class DefaultOAuth2ApiService implements OAuth2ApiService, HasEntityManagerFactory {
+@RequestScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.authentication.oauth2-service.type", stringValue = "default")
+public class DefaultOAuth2ApiService implements IcebergRestOAuth2ApiService {
   private static final Logger LOGGER = LoggerFactory.getLogger(DefaultOAuth2ApiService.class);
-  private TokenBrokerFactory tokenBrokerFactory;
+  private final TokenBrokerFactory tokenBrokerFactory;
+  private final CallContext callContext;
 
-  public DefaultOAuth2ApiService() {}
+  @Inject
+  public DefaultOAuth2ApiService(TokenBrokerFactory tokenBrokerFactory, CallContext callContext) {
+    this.tokenBrokerFactory = tokenBrokerFactory;
+    this.callContext = callContext;
+    CallContext.setCurrentContext(callContext);
+  }
 
   @Override
   public Response getToken(
@@ -60,8 +69,7 @@ public class DefaultOAuth2ApiService implements OAuth2ApiService, HasEntityManag
       TokenType actorTokenType,
       SecurityContext securityContext) {
 
-    TokenBroker tokenBroker =
-        tokenBrokerFactory.apply(CallContext.getCurrentContext().getRealmContext());
+    TokenBroker tokenBroker = tokenBrokerFactory.apply(callContext.getRealmContext());
     if (!tokenBroker.supportsGrantType(grantType)) {
       return OAuthUtils.getResponseFromError(OAuthTokenErrorResponse.Error.unsupported_grant_type);
     }
@@ -119,17 +127,5 @@ public class DefaultOAuth2ApiService implements OAuth2ApiService, HasEntityManag
                 .setExpirationInSeconds(tokenResponse.getExpiresIn())
                 .build())
         .build();
-  }
-
-  @Override
-  public void setEntityManagerFactory(RealmEntityManagerFactory entityManagerFactory) {
-    if (tokenBrokerFactory instanceof HasEntityManagerFactory hemf) {
-      hemf.setEntityManagerFactory(entityManagerFactory);
-    }
-  }
-
-  @Override
-  public void setTokenBroker(TokenBrokerFactory tokenBrokerFactory) {
-    this.tokenBrokerFactory = tokenBrokerFactory;
   }
 }

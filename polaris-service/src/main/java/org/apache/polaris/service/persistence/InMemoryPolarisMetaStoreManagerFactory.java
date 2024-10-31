@@ -18,7 +18,11 @@
  */
 package org.apache.polaris.service.persistence;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.quarkus.arc.lookup.LookupIfProperty;
+import io.quarkus.runtime.Startup;
+import jakarta.annotation.Nonnull;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -26,26 +30,43 @@ import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.context.RealmContext;
-import org.apache.polaris.core.persistence.LocalPolarisMetaStoreManagerFactory;
-import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
-import org.apache.polaris.core.persistence.PolarisMetaStoreSession;
-import org.apache.polaris.core.persistence.PolarisTreeMapMetaStoreSessionImpl;
-import org.apache.polaris.core.persistence.PolarisTreeMapStore;
-import org.jetbrains.annotations.NotNull;
+import org.apache.polaris.core.persistence.*;
+import org.apache.polaris.core.storage.PolarisStorageIntegrationProvider;
+import org.apache.polaris.service.config.RuntimeCandidate;
+import org.apache.polaris.service.context.RealmContextResolver;
 
-@JsonTypeName("in-memory")
+@ApplicationScoped
+@RuntimeCandidate
+@LookupIfProperty(name = "polaris.persistence.metastore-manager.type", stringValue = "in-memory")
 public class InMemoryPolarisMetaStoreManagerFactory
     extends LocalPolarisMetaStoreManagerFactory<PolarisTreeMapStore> {
-  final Set<String> bootstrappedRealms = new HashSet<>();
+
+  private final Set<String> bootstrappedRealms = new HashSet<>();
+  private final RealmContextResolver realmContextResolver;
+
+  @Inject
+  public InMemoryPolarisMetaStoreManagerFactory(
+      PolarisStorageIntegrationProvider storageIntegration,
+      RealmContextResolver realmContextResolver) {
+    this.storageIntegration = storageIntegration;
+    this.realmContextResolver = realmContextResolver;
+  }
+
+  @Startup
+  public void init() {
+    // For in-memory metastore we need to bootstrap Service and Service principal at startup
+    // (for default realm)
+    getOrCreateMetaStoreManager(realmContextResolver::getDefaultRealm);
+  }
 
   @Override
-  protected PolarisTreeMapStore createBackingStore(@NotNull PolarisDiagnostics diagnostics) {
+  protected PolarisTreeMapStore createBackingStore(@Nonnull PolarisDiagnostics diagnostics) {
     return new PolarisTreeMapStore(diagnostics);
   }
 
   @Override
   protected PolarisMetaStoreSession createMetaStoreSession(
-      @NotNull PolarisTreeMapStore store, @NotNull RealmContext realmContext) {
+      @Nonnull PolarisTreeMapStore store, @Nonnull RealmContext realmContext) {
     return new PolarisTreeMapMetaStoreSessionImpl(store, storageIntegration);
   }
 

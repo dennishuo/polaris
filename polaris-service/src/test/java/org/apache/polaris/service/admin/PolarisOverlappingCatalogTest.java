@@ -18,70 +18,63 @@
  */
 package org.apache.polaris.service.admin;
 
-import static org.apache.polaris.service.context.DefaultContextResolver.REALM_PROPERTY_KEY;
+import static org.apache.polaris.service.context.DefaultRealmContextResolver.REALM_PROPERTY_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.dropwizard.testing.ConfigOverride;
-import io.dropwizard.testing.ResourceHelpers;
-import io.dropwizard.testing.junit5.DropwizardAppExtension;
-import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.core.Response;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.polaris.core.admin.model.AwsStorageConfigInfo;
 import org.apache.polaris.core.admin.model.Catalog;
 import org.apache.polaris.core.admin.model.CatalogProperties;
 import org.apache.polaris.core.admin.model.CreateCatalogRequest;
 import org.apache.polaris.core.admin.model.StorageConfigInfo;
-import org.apache.polaris.service.PolarisApplication;
-import org.apache.polaris.service.config.PolarisApplicationConfig;
-import org.apache.polaris.service.test.PolarisConnectionExtension;
-import org.apache.polaris.service.test.PolarisRealm;
+import org.apache.polaris.service.test.PolarisIntegrationTestHelper;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-@ExtendWith({DropwizardExtensionsSupport.class, PolarisConnectionExtension.class})
+@QuarkusTest
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestProfile(PolarisOverlappingCatalogTest.Profile.class)
 public class PolarisOverlappingCatalogTest {
-  private static final DropwizardAppExtension<PolarisApplicationConfig> EXT =
-      new DropwizardAppExtension<>(
-          PolarisApplication.class,
-          ResourceHelpers.resourceFilePath("polaris-server-integrationtest.yml"),
-          // Bind to random port to support parallelism
-          ConfigOverride.config("server.applicationConnectors[0].port", "0"),
-          ConfigOverride.config("server.adminConnectors[0].port", "0"),
-          // Block overlapping catalog paths:
-          ConfigOverride.config("featureConfiguration.ALLOW_OVERLAPPING_CATALOG_URLS", "false"));
-  private static String userToken;
-  private static String realm;
+
+  @Inject PolarisIntegrationTestHelper testHelper;
 
   @BeforeAll
-  public static void setup(
-      PolarisConnectionExtension.PolarisToken adminToken, @PolarisRealm String polarisRealm)
-      throws IOException {
-    userToken = adminToken.token();
-    realm = polarisRealm;
+  public void setUp(TestInfo testInfo) {
+    testHelper.setUp(testInfo);
+  }
 
-    // Set up the database location
-    PolarisConnectionExtension.createTestDir(realm);
+  @AfterAll
+  public void tearDown() {
+    testHelper.tearDown();
   }
 
   private Response createCatalog(String prefix, String defaultBaseLocation, boolean isExternal) {
     return createCatalog(prefix, defaultBaseLocation, isExternal, new ArrayList<String>());
   }
 
-  private static Invocation.Builder request() {
-    return EXT.client()
-        .target(String.format("http://localhost:%d/api/management/v1/catalogs", EXT.getLocalPort()))
+  private Invocation.Builder request() {
+    return testHelper
+        .client
+        .target(
+            String.format("http://localhost:%d/api/management/v1/catalogs", testHelper.localPort))
         .request("application/json")
-        .header("Authorization", "Bearer " + userToken)
-        .header(REALM_PROPERTY_KEY, realm);
+        .header("Authorization", "Bearer " + testHelper.adminToken)
+        .header(REALM_PROPERTY_KEY, testHelper.realm);
   }
 
   private Response createCatalog(
@@ -173,5 +166,14 @@ public class PolarisOverlappingCatalogTest {
     // This AL overlaps with an initial AL
     assertThat(createCatalog(prefix, "plays", initiallyExternal, Arrays.asList("rent", "cats")))
         .returns(Response.Status.BAD_REQUEST.getStatusCode(), Response::getStatus);
+  }
+
+  public static class Profile implements QuarkusTestProfile {
+
+    @Override
+    public Map<String, String> getConfigOverrides() {
+      return Map.of(
+          "polaris.config.feature-configurations.ALLOW_OVERLAPPING_CATALOG_URLS", "false");
+    }
   }
 }

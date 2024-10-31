@@ -20,6 +20,8 @@ package org.apache.polaris.service.task;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import org.apache.commons.codec.binary.Base64;
@@ -39,22 +41,17 @@ import org.apache.polaris.core.entity.PolarisBaseEntity;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.TableLikeEntity;
 import org.apache.polaris.core.entity.TaskEntity;
-import org.apache.polaris.service.persistence.InMemoryPolarisMetaStoreManagerFactory;
+import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 
+@QuarkusTest
 class TableCleanupTaskHandlerTest {
-  private InMemoryPolarisMetaStoreManagerFactory metaStoreManagerFactory;
-  private RealmContext realmContext;
+  @Inject MetaStoreManagerFactory metaStoreManagerFactory;
 
-  @BeforeEach
-  void setUp() {
-    metaStoreManagerFactory = new InMemoryPolarisMetaStoreManagerFactory();
-    realmContext = () -> "realmName";
-  }
+  private final RealmContext realmContext = () -> "realmName";
 
   @Test
   public void testTableCleanup() throws IOException {
