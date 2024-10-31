@@ -62,10 +62,10 @@ import org.junit.jupiter.api.TestInfo;
 @Singleton
 public class PolarisIntegrationTestHelper {
 
-  @Inject MetaStoreManagerFactory metaStoreManagerFactory;
-  @Inject RealmContextResolver realmContextResolver;
-  @Inject CallContextResolver callContextResolver;
-  @Inject ObjectMapper objectMapper;
+  @Inject public MetaStoreManagerFactory metaStoreManagerFactory;
+  @Inject public RealmContextResolver realmContextResolver;
+  @Inject public CallContextResolver callContextResolver;
+  @Inject public ObjectMapper objectMapper;
 
   public record SnowmanCredentials(String clientId, String clientSecret) {}
 

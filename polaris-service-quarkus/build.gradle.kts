@@ -38,6 +38,7 @@ dependencies {
   implementation("io.quarkus:quarkus-logging-json")
   implementation("io.quarkus:quarkus-rest")
   implementation("io.quarkus:quarkus-rest-jackson")
+  implementation("io.quarkus:quarkus-hibernate-validator")
   implementation("io.quarkus:quarkus-smallrye-health")
   implementation("io.quarkus:quarkus-micrometer")
   implementation("io.quarkus:quarkus-opentelemetry")
