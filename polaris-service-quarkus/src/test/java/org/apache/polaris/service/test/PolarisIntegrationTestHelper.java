@@ -24,19 +24,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.test.junit.QuarkusMock;
+import jakarta.enterprise.inject.Vetoed;
 import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.io.FileUtils;
+import org.apache.iceberg.aws.s3.S3FileIO;
+import org.apache.iceberg.aws.s3.S3FileIOProperties;
+import org.apache.iceberg.io.FileIO;
 import org.apache.polaris.core.admin.model.GrantPrincipalRoleRequest;
 import org.apache.polaris.core.admin.model.Principal;
 import org.apache.polaris.core.admin.model.PrincipalRole;
@@ -49,17 +50,17 @@ import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.PolarisPrincipalSecrets;
 import org.apache.polaris.core.persistence.MetaStoreManagerFactory;
 import org.apache.polaris.core.persistence.PolarisMetaStoreManager;
+import org.apache.polaris.core.storage.aws.PolarisS3FileIOClientFactory;
 import org.apache.polaris.service.auth.TokenUtils;
+import org.apache.polaris.service.catalog.io.DefaultFileIOFactory;
+import org.apache.polaris.service.catalog.io.FileIOFactory;
 import org.apache.polaris.service.context.CallContextResolver;
 import org.apache.polaris.service.context.RealmContextResolver;
 import org.apache.polaris.service.persistence.InMemoryPolarisMetaStoreManagerFactory;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class PolarisIntegrationTestBase {
+@Singleton
+public class PolarisIntegrationTestHelper {
 
   @Inject MetaStoreManagerFactory metaStoreManagerFactory;
   @Inject RealmContextResolver realmContextResolver;
@@ -68,39 +69,35 @@ public abstract class PolarisIntegrationTestBase {
 
   public record SnowmanCredentials(String clientId, String clientSecret) {}
 
-  protected String realm;
-  protected Client client;
-  protected int localPort;
-  protected Path testDir;
-  protected PolarisPrincipalSecrets adminSecrets;
-  protected SnowmanCredentials snowmanCredentials;
-  protected String userToken;
+  public String realm;
+  public Client client;
+  public int localPort;
+  public PolarisPrincipalSecrets adminSecrets;
+  public SnowmanCredentials snowmanCredentials;
+  public String adminToken;
+  public String userToken;
 
-  @BeforeAll
-  public void setup(TestInfo testInfo) {
+  public void setUp(TestInfo testInfo) {
+    QuarkusMock.installMockForType(new MockFileIOFactory(), FileIOFactory.class);
     // Generate unique realm using test name for each test since the tests can run in parallel
     realm = testInfo.getTestClass().orElseThrow().getName().replace('.', '_');
     client = ClientBuilder.newClient();
     localPort = Integer.getInteger("quarkus.http.port");
-    testDir = Path.of("build/test_data/iceberg/" + realm);
-    FileUtils.deleteQuietly(testDir.toFile());
-    try {
-      Files.createDirectories(testDir);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
-    }
     fetchAdminSecrets();
-    fetchPolarisToken();
-    createSnowmanCredentials();
-  }
-
-  private void fetchPolarisToken() {
-    userToken =
+    adminToken =
         TokenUtils.getTokenFromSecrets(
             client,
             localPort,
             adminSecrets.getPrincipalClientId(),
             adminSecrets.getMainSecret(),
+            realm);
+    createSnowmanCredentials();
+    userToken =
+        TokenUtils.getTokenFromSecrets(
+            client,
+            localPort,
+            snowmanCredentials.clientId(),
+            snowmanCredentials.clientSecret(),
             realm);
   }
 
@@ -146,7 +143,7 @@ public abstract class PolarisIntegrationTestBase {
             .target(
                 String.format("http://localhost:%d/api/management/v1/principal-roles", localPort))
             .request("application/json")
-            .header("Authorization", "Bearer " + userToken)
+            .header("Authorization", "Bearer " + adminToken)
             .header(REALM_PROPERTY_KEY, realm)
             .post(Entity.json(principalRole))) {
       assertThat(createPrResponse)
@@ -159,7 +156,7 @@ public abstract class PolarisIntegrationTestBase {
         client
             .target(String.format("http://localhost:%d/api/management/v1/principals", localPort))
             .request("application/json")
-            .header("Authorization", "Bearer " + userToken) // how is token getting used?
+            .header("Authorization", "Bearer " + adminToken) // how is token getting used?
             .header(REALM_PROPERTY_KEY, realm)
             .post(Entity.json(principal))) {
       assertThat(createPResponse)
@@ -202,7 +199,7 @@ public abstract class PolarisIntegrationTestBase {
                     "http://localhost:%d/api/management/v1/principals/snowman/principal-roles",
                     localPort))
             .request("application/json")
-            .header("Authorization", "Bearer " + userToken) // how is token getting used?
+            .header("Authorization", "Bearer " + adminToken) // how is token getting used?
             .header(REALM_PROPERTY_KEY, realm)
             .put(Entity.json(new GrantPrincipalRoleRequest(principalRole)))) {
       assertThat(assignPrResponse)
@@ -210,13 +207,16 @@ public abstract class PolarisIntegrationTestBase {
     }
   }
 
-  @AfterAll
   public void tearDown() {
-    if (!(metaStoreManagerFactory instanceof InMemoryPolarisMetaStoreManagerFactory)) {
-      metaStoreManagerFactory.purgeRealms(List.of(realm));
+    try {
+      if (!(metaStoreManagerFactory instanceof InMemoryPolarisMetaStoreManagerFactory)) {
+        metaStoreManagerFactory.purgeRealms(List.of(realm));
+      }
+    } finally {
+      if (client != null) {
+        client.close();
+      }
     }
-    FileUtils.deleteQuietly(testDir.toFile());
-    client.close();
   }
 
   private Map<String, String> readInternalProperties(
@@ -226,6 +226,21 @@ public abstract class PolarisIntegrationTestBase {
           principal.getEntity().getInternalProperties(), new TypeReference<>() {});
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  /** Workaround for class loading issues with Quarkus tests. */
+  @Vetoed
+  private static class MockFileIOFactory extends DefaultFileIOFactory {
+
+    @Override
+    public FileIO loadFileIO(String impl, Map<String, String> properties) {
+      if (impl.equals("org.apache.iceberg.aws.s3.S3FileIO")) {
+        PolarisS3FileIOClientFactory factory = new PolarisS3FileIOClientFactory();
+        factory.initialize(properties);
+        return new S3FileIO(factory::s3, new S3FileIOProperties(properties));
+      }
+      return super.loadFileIO(impl, properties);
     }
   }
 }
