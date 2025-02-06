@@ -19,6 +19,7 @@
 package org.apache.polaris.service.catalog;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import jakarta.ws.rs.core.SecurityContext;
 import java.io.Closeable;
@@ -44,6 +45,7 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.UpdateRequirement;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
@@ -55,6 +57,9 @@ import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.rest.CatalogHandlers;
+import org.apache.iceberg.rest.HTTPClient;
+import org.apache.iceberg.rest.RESTCatalog;
+import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.apache.iceberg.rest.requests.CommitTransactionRequest;
 import org.apache.iceberg.rest.requests.CreateNamespaceRequest;
 import org.apache.iceberg.rest.requests.CreateTableRequest;
@@ -194,9 +199,43 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
   }
 
   private void initializeCatalog() {
-    this.baseCatalog =
-        catalogFactory.createCallContextCatalog(
-            realmContext, authenticatedPrincipal, securityContext, resolutionManifest);
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      LOGGER
+          .atInfo()
+          .addKeyValue("remoteUrl", resolvedCatalogEntity.getRemoteUrl())
+          .log("Initializing federated catalog");
+
+      SessionCatalog.SessionContext context = SessionCatalog.SessionContext.createEmpty();
+      RESTCatalog restCatalog =
+          new RESTCatalog(
+              context,
+              (config) ->
+                  HTTPClient.builder(config)
+                      .uri(config.get(org.apache.iceberg.CatalogProperties.URI))
+                      .build());
+
+      ImmutableMap.Builder<String, String> propertiesBuilder =
+          ImmutableMap.<String, String>builder()
+              .put(org.apache.iceberg.CatalogProperties.URI, resolvedCatalogEntity.getRemoteUrl())
+              .put(
+                  OAuth2Properties.CREDENTIAL,
+                  resolvedCatalogEntity.getPropertiesAsMap().get("credential"))
+              .put(OAuth2Properties.SCOPE, resolvedCatalogEntity.getPropertiesAsMap().get("scope"))
+              .put("warehouse", resolvedCatalogEntity.getPropertiesAsMap().get("catalog-name"));
+
+      restCatalog.initialize(
+          resolvedCatalogEntity.getPropertiesAsMap().get("catalog-name"),
+          propertiesBuilder.buildKeepingLast());
+      this.baseCatalog = restCatalog;
+    } else {
+      LOGGER.atInfo().log("Initializing non-federated catalog");
+      this.baseCatalog =
+          catalogFactory.createCallContextCatalog(
+              realmContext, authenticatedPrincipal, securityContext, resolutionManifest);
+    }
     this.namespaceCatalog =
         (baseCatalog instanceof SupportsNamespaces) ? (SupportsNamespaces) baseCatalog : null;
     this.viewCatalog = (baseCatalog instanceof ViewCatalog) ? (ViewCatalog) baseCatalog : null;
@@ -237,6 +276,16 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
       }
     }
     resolutionManifest.resolveAll();
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
+      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
+      initializeCatalog();
+      return;
+    }
+
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(namespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
@@ -271,6 +320,16 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
             Arrays.asList(namespace.levels()), PolarisEntityType.NAMESPACE, true /* optional */),
         namespace);
     resolutionManifest.resolveAll();
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
+      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
+      initializeCatalog();
+      return;
+    }
+
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(parentNamespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", parentNamespace);
@@ -309,6 +368,16 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
             true /* optional */),
         identifier);
     resolutionManifest.resolveAll();
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
+      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
+      initializeCatalog();
+      return;
+    }
+
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(namespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
@@ -337,6 +406,16 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
             true /* optional */),
         identifier);
     resolutionManifest.resolveAll();
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
+      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
+      initializeCatalog();
+      return;
+    }
+
     PolarisResolvedPathWrapper target =
         resolutionManifest.getResolvedPath(identifier, subType, true);
     if (target == null) {
@@ -372,6 +451,15 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 identifier));
 
     ResolverStatus status = resolutionManifest.resolveAll();
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
+      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
+      initializeCatalog();
+      return;
+    }
 
     // If one of the paths failed to resolve, throw exception based on the one that
     // we first failed to resolve.
@@ -433,6 +521,16 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
             true /* optional */),
         dst);
     ResolverStatus status = resolutionManifest.resolveAll();
+
+    CatalogEntity resolvedCatalogEntity =
+        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
+    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
+      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
+      initializeCatalog();
+      return;
+    }
+
     if (status.getStatus() == ResolverStatus.StatusEnum.PATH_COULD_NOT_BE_FULLY_RESOLVED
         && status.getFailedToResolvePath().getLastEntityType() == PolarisEntityType.NAMESPACE) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", dst.namespace());
@@ -515,7 +613,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
   private static boolean isExternal(CatalogEntity catalog) {
     return org.apache.polaris.core.admin.model.Catalog.TypeEnum.EXTERNAL.equals(
-        catalog.getCatalogType());
+            catalog.getCatalogType())
+        && catalog.getRemoteUrl() == null;
   }
 
   public GetNamespaceResponse loadNamespaceMetadata(Namespace namespace) {
