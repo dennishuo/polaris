@@ -72,6 +72,11 @@ public class PolarisMetaStoreManagerImpl implements PolarisMetaStoreManager {
   /** use synchronous drop for entities */
   private static final boolean USE_SYNCHRONOUS_DROP = true;
 
+  // TODO: Make the BasePersistence impl come from PolarisCallContext instead.
+  private BasePersistence getBasePersistence() {
+    return new TransactionalBasePersistence();
+  }
+
   /**
    * Lookup an entity by its name
    *
@@ -84,24 +89,7 @@ public class PolarisMetaStoreManagerImpl implements PolarisMetaStoreManager {
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisMetaStoreSession ms,
       @Nonnull PolarisEntitiesActiveKey entityActiveKey) {
-    // ensure that the entity exists
-    PolarisEntityActiveRecord entityActiveRecord = ms.lookupEntityActive(callCtx, entityActiveKey);
-
-    // if not found, return null
-    if (entityActiveRecord == null) {
-      return null;
-    }
-
-    // lookup the entity, should be there
-    PolarisBaseEntity entity =
-        ms.lookupEntity(callCtx, entityActiveRecord.getCatalogId(), entityActiveRecord.getId());
-    callCtx
-        .getDiagServices()
-        .checkNotNull(
-            entity, "unexpected_not_found_entity", "entityActiveRecord={}", entityActiveRecord);
-
-    // return it now
-    return entity;
+    return getBasePersistence().lookupEntityByName(callCtx, entityActiveKey);
   }
 
   /**
@@ -723,44 +711,6 @@ public class PolarisMetaStoreManagerImpl implements PolarisMetaStoreManager {
     return new BaseResult(BaseResult.ReturnStatus.SUCCESS);
   }
 
-  /**
-   * See {@link #readEntityByName(PolarisCallContext, List, PolarisEntityType, PolarisEntitySubType,
-   * String)}
-   */
-  private @Nonnull PolarisMetaStoreManager.EntityResult readEntityByName(
-      @Nonnull PolarisCallContext callCtx,
-      @Nonnull PolarisMetaStoreSession ms,
-      @Nullable List<PolarisEntityCore> catalogPath,
-      @Nonnull PolarisEntityType entityType,
-      @Nonnull PolarisEntitySubType entitySubType,
-      @Nonnull String name) {
-    // first resolve again the catalogPath to that entity
-    PolarisEntityResolver resolver = new PolarisEntityResolver(callCtx, ms, catalogPath);
-
-    // return if we failed to resolve
-    if (resolver.isFailure()) {
-      return new EntityResult(BaseResult.ReturnStatus.CATALOG_PATH_CANNOT_BE_RESOLVED, null);
-    }
-
-    // now looking the entity by name
-    PolarisEntitiesActiveKey entityActiveKey =
-        new PolarisEntitiesActiveKey(
-            resolver.getCatalogIdOrNull(), resolver.getParentId(), entityType.getCode(), name);
-    PolarisBaseEntity entity = this.lookupEntityByName(callCtx, ms, entityActiveKey);
-
-    // if found, check if subType really matches
-    if (entity != null
-        && entitySubType != PolarisEntitySubType.ANY_SUBTYPE
-        && entity.getSubTypeCode() != entitySubType.getCode()) {
-      entity = null;
-    }
-
-    // success, return what we found
-    return (entity == null)
-        ? new EntityResult(BaseResult.ReturnStatus.ENTITY_NOT_FOUND, null)
-        : new EntityResult(entity);
-  }
-
   /** {@inheritDoc} */
   @Override
   public @Nonnull PolarisMetaStoreManager.EntityResult readEntityByName(
@@ -769,12 +719,7 @@ public class PolarisMetaStoreManagerImpl implements PolarisMetaStoreManager {
       @Nonnull PolarisEntityType entityType,
       @Nonnull PolarisEntitySubType entitySubType,
       @Nonnull String name) {
-    // get meta store we should be using
-    PolarisMetaStoreSession ms = callCtx.getMetaStore();
-
-    // run operation in a read/write transaction
-    return ms.runInReadTransaction(
-        callCtx, () -> readEntityByName(callCtx, ms, catalogPath, entityType, entitySubType, name));
+    return getBasePersistence().readEntityByName(callCtx, catalogPath, entityType, entitySubType, name);
   }
 
   /**
