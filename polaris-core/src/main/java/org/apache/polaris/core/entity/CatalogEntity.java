@@ -189,7 +189,8 @@ public class CatalogEntity extends PolarisEntity {
   }
 
   public String getRemoteUrl() {
-    return getInternalPropertiesAsMap().get(REMOTE_URL);
+    // TODO: Refactor this to use new ConnectionConfigurationInfo
+    return getPropertiesAsMap().get("remoteUrl");
   }
 
   public static class Builder extends PolarisEntity.BaseBuilder<CatalogEntity, Builder> {
