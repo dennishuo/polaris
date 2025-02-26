@@ -756,6 +756,15 @@ public class PolarisAdminService {
     return listCatalogsUnsafe();
   }
 
+  private PolarisEntity redactCredentials(PolarisEntity entity) {
+    if (entity.getPropertiesAsMap().containsKey("credential")) {
+      entity = new PolarisEntity.Builder(entity)
+          .addProperty("credential", "<redacted>")
+          .build();
+    }
+    return entity;
+  }
+
   /**
    * List all catalogs without checking for permission. May contain NULLs due to multiple non-atomic
    * API calls to the persistence layer. Specifically, this can happen when a PolarisEntity is
@@ -770,8 +779,8 @@ public class PolarisAdminService {
         .stream()
         .map(
             nameAndId ->
-                PolarisEntity.of(
-                    metaStoreManager.loadEntity(metaStoreSession, 0, nameAndId.getId())))
+                redactCredentials(PolarisEntity.of(
+                    metaStoreManager.loadEntity(metaStoreSession, 0, nameAndId.getId()))))
         .toList();
   }
 
