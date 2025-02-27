@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.polaris.core.PolarisCallContext;
 import org.apache.polaris.core.PolarisDiagnostics;
 import org.apache.polaris.core.auth.AuthenticatedPolarisPrincipal;
+import org.apache.polaris.core.entity.CatalogEntity;
 import org.apache.polaris.core.entity.PolarisBaseEntity;
 import org.apache.polaris.core.entity.PolarisChangeTrackingVersions;
 import org.apache.polaris.core.entity.PolarisEntityConstants;
@@ -105,6 +106,10 @@ public class Resolver {
   private final Map<Long, ResolvedPolarisEntity> resolvedEntriesById;
 
   private ResolverStatus resolverStatus;
+
+  // Set if we determine the reference catalog is a passthrough facade, which impacts
+  // leniency of resolution of in-catalog paths
+  private boolean isPassthroughFacade;
 
   /**
    * Constructor, effectively starts an entity resolver session
@@ -264,6 +269,10 @@ public class Resolver {
     return status;
   }
 
+  public boolean getIsPassthroughFacade() {
+    return this.isPassthroughFacade;
+  }
+
   /**
    * @return the principal we resolved
    */
@@ -297,9 +306,9 @@ public class Resolver {
   public @Nullable ResolvedPolarisEntity getResolvedReferenceCatalog() {
     // can only be called if the resolver has been called and was success
     this.diagnostics.checkNotNull(resolverStatus, "resolver_must_be_called_first");
-    /*this.diagnostics.check(
-    resolverStatus.getStatus() == ResolverStatus.StatusEnum.SUCCESS,
-    "resolver_must_be_successful");*/
+    this.diagnostics.check(
+        resolverStatus.getStatus() == ResolverStatus.StatusEnum.SUCCESS,
+        "resolver_must_be_successful");
 
     return resolvedReferenceCatalog;
   }
@@ -652,6 +661,7 @@ public class Resolver {
           this.resolveByName(toValidate, entityName.getEntityType(), entityName.getEntityName());
 
       // if not found, we can exit unless the entity is optional
+      // TODO: Consider how this interacts with CATALOG_ROLE in the isPassthroughFacade case.
       if (!entityName.isOptional()
           && (resolvedEntity == null || resolvedEntity.getEntity().isDropped())) {
         return new ResolverStatus(entityName.getEntityType(), entityName.getEntityName());
@@ -702,7 +712,9 @@ public class Resolver {
 
         // if not found, abort
         if (segment == null || segment.getEntity().isDropped()) {
-          if (path.isOptional()) {
+          // If we've determined the catalog is a passthrough facade, treat all paths as
+          // optional.
+          if (path.isOptional() || this.isPassthroughFacade) {
             // we have resolved as much as what we could have
             break;
           } else {
@@ -845,6 +857,10 @@ public class Resolver {
           }
         }
       }
+    }
+
+    if (CatalogEntity.of(this.resolvedReferenceCatalog.getEntity()).isPassthroughFacade()) {
+      this.isPassthroughFacade = true;
     }
 
     // all good

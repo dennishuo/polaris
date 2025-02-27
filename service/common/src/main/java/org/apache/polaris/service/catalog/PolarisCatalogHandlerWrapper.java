@@ -266,13 +266,6 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
-      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
-      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
-      initializeCatalog();
-      return;
-    }
-
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(namespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
@@ -309,13 +302,6 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
-      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
-      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
-      initializeCatalog();
-      return;
-    }
-
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(parentNamespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", parentNamespace);
@@ -356,13 +342,6 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
-      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
-      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
-      initializeCatalog();
-      return;
-    }
-
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(namespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
@@ -393,13 +372,6 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
-      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
-      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
-      initializeCatalog();
-      return;
-    }
-
     PolarisResolvedPathWrapper target =
         resolutionManifest.getResolvedPath(identifier, subType, true);
     if (target == null) {
@@ -437,13 +409,6 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
-      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
-      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
-      initializeCatalog();
-      return;
-    }
-
     // If one of the paths failed to resolve, throw exception based on the one that
     // we first failed to resolve.
     if (status.getStatus() == ResolverStatus.StatusEnum.PATH_COULD_NOT_BE_FULLY_RESOLVED) {
@@ -506,13 +471,6 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
-      // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
-      LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
-      initializeCatalog();
-      return;
-    }
-
     if (status.getStatus() == ResolverStatus.StatusEnum.PATH_COULD_NOT_BE_FULLY_RESOLVED
         && status.getFailedToResolvePath().getLastEntityType() == PolarisEntityType.NAMESPACE) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", dst.namespace());
@@ -595,10 +553,10 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
     }
   }
 
-  private static boolean isExternal(CatalogEntity catalog) {
+  private static boolean isStaticFacade(CatalogEntity catalog) {
     return org.apache.polaris.core.admin.model.Catalog.TypeEnum.EXTERNAL.equals(
             catalog.getCatalogType())
-        && catalog.getConnectionRemoteUri() == null;
+        && !catalog.isPassthroughFacade();
   }
 
   private void doCatalogOperation(Runnable handler) {
@@ -683,8 +641,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot create table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot create table on static-facade external catalogs.");
     }
     return doCatalogOperation(() -> CatalogHandlers.createTable(baseCatalog, namespace, request));
   }
@@ -702,8 +660,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot create table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot create table on static-facade external catalogs.");
     }
     return doCatalogOperation(
         () -> {
@@ -811,8 +769,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot create table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot create table on static-facade external catalogs.");
     }
     return doCatalogOperation(
         () -> {
@@ -834,8 +792,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot create table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot create table on static-facade external catalogs.");
     }
     return doCatalogOperation(
         () -> {
@@ -1021,8 +979,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot update table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot update table on static-facade external catalogs.");
     }
     return doCatalogOperation(
         () ->
@@ -1040,8 +998,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot update table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot update table on static-facade external catalogs.");
     }
     return doCatalogOperation(
         () ->
@@ -1065,8 +1023,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot drop table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot drop table on static-facade external catalogs.");
     }
     doCatalogOperation(() -> CatalogHandlers.purgeTable(baseCatalog, tableIdentifier));
   }
@@ -1090,8 +1048,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot rename table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot rename table on static-facade external catalogs.");
     }
     doCatalogOperation(() -> CatalogHandlers.renameTable(baseCatalog, request));
   }
@@ -1114,8 +1072,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot update table on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot update table on static-facade external catalogs.");
     }
 
     if (!(baseCatalog instanceof BasePolarisCatalog)) {
@@ -1221,8 +1179,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot create view on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot create view on static-facade external catalogs.");
     }
     return doCatalogOperation(() -> CatalogHandlers.createView(viewCatalog, namespace, request));
   }
@@ -1244,8 +1202,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot replace view on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot replace view on static-facade external catalogs.");
     }
     return doCatalogOperation(
         () -> CatalogHandlers.updateView(viewCatalog, viewIdentifier, applyUpdateFilters(request)));
@@ -1277,8 +1235,8 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
                 .getResolvedReferenceCatalogEntity()
                 .getResolvedLeafEntity()
                 .getEntity());
-    if (isExternal(catalog)) {
-      throw new BadRequestException("Cannot rename view on external catalogs.");
+    if (isStaticFacade(catalog)) {
+      throw new BadRequestException("Cannot rename view on static-facade external catalogs.");
     }
     doCatalogOperation(() -> CatalogHandlers.renameView(viewCatalog, request));
   }
