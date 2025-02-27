@@ -195,6 +195,12 @@ public class CatalogEntity extends PolarisEntity {
         .orElse(null);
   }
 
+  public boolean isPassthroughFacade() {
+    // TODO: Refactor this to use new ConnectionConfigurationInfo
+    String remoteUri = getPropertiesAsMap().get(CONNECTION_REMOTE_URI_KEY);
+    return remoteUri != null && !remoteUri.isEmpty();
+  }
+
   public String getConnectionRemoteUri() {
     // TODO: Refactor this to use new ConnectionConfigurationInfo
     return getPropertiesAsMap().get(CONNECTION_REMOTE_URI_KEY);
