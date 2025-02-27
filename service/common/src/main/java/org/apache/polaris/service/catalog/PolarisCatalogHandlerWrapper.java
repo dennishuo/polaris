@@ -186,10 +186,10 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
   private void initializeCatalog() {
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       LOGGER
           .atInfo()
-          .addKeyValue("remoteUrl", resolvedCatalogEntity.getRemoteUrl())
+          .addKeyValue("remoteUrl", resolvedCatalogEntity.getConnectionRemoteUri())
           .log("Initializing federated catalog");
 
       SessionCatalog.SessionContext context = SessionCatalog.SessionContext.createEmpty();
@@ -203,16 +203,19 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
       ImmutableMap.Builder<String, String> propertiesBuilder =
           ImmutableMap.<String, String>builder()
-              .put(org.apache.iceberg.CatalogProperties.URI, resolvedCatalogEntity.getRemoteUrl())
+              .put(
+                  org.apache.iceberg.CatalogProperties.URI,
+                  resolvedCatalogEntity.getConnectionRemoteUri())
               .put(
                   OAuth2Properties.CREDENTIAL,
-                  resolvedCatalogEntity.getPropertiesAsMap().get("credential"))
-              .put(OAuth2Properties.SCOPE, resolvedCatalogEntity.getPropertiesAsMap().get("scope"))
-              .put("warehouse", resolvedCatalogEntity.getPropertiesAsMap().get("catalog-name"));
+                  resolvedCatalogEntity.getConnectionClientId()
+                      + ":"
+                      + resolvedCatalogEntity.getConnectionClientSecret())
+              .put(OAuth2Properties.SCOPE, resolvedCatalogEntity.getConnectionScopes())
+              .put("warehouse", resolvedCatalogEntity.getConnectionCatalogName());
 
       restCatalog.initialize(
-          resolvedCatalogEntity.getPropertiesAsMap().get("catalog-name"),
-          propertiesBuilder.buildKeepingLast());
+          resolvedCatalogEntity.getConnectionCatalogName(), propertiesBuilder.buildKeepingLast());
       this.baseCatalog = restCatalog;
     } else {
       LOGGER.atInfo().log("Initializing non-federated catalog");
@@ -263,7 +266,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
       LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
       initializeCatalog();
@@ -306,7 +309,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
       LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
       initializeCatalog();
@@ -353,7 +356,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
       LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
       initializeCatalog();
@@ -390,7 +393,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
       LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
       initializeCatalog();
@@ -434,7 +437,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
       LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
       initializeCatalog();
@@ -503,7 +506,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
 
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
-    if (resolvedCatalogEntity.getRemoteUrl() != null) {
+    if (resolvedCatalogEntity.getConnectionRemoteUri() != null) {
       // DO_NOT_SUBMIT: For prototype only, simply circumvent authorization in federated cases.
       LOGGER.atWarn().log("DO_NOT_SUBMIT: Skipping authorization for federated call");
       initializeCatalog();
@@ -595,7 +598,7 @@ public class PolarisCatalogHandlerWrapper implements AutoCloseable {
   private static boolean isExternal(CatalogEntity catalog) {
     return org.apache.polaris.core.admin.model.Catalog.TypeEnum.EXTERNAL.equals(
             catalog.getCatalogType())
-        && catalog.getRemoteUrl() == null;
+        && catalog.getConnectionRemoteUri() == null;
   }
 
   private void doCatalogOperation(Runnable handler) {

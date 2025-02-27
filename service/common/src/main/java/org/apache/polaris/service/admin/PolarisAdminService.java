@@ -617,16 +617,8 @@ public class PolarisAdminService {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_CATALOG;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.CATALOG);
 
-    CatalogEntity rawCatalogEntity =
-        findCatalogByName(name)
-            .orElseThrow(() -> new NotFoundException("Catalog %s not found", name));
-    if (rawCatalogEntity.getPropertiesAsMap().containsKey("credential")) {
-      rawCatalogEntity =
-          new CatalogEntity.Builder(rawCatalogEntity)
-              .addProperty("credential", "<redacted>")
-              .build();
-    }
-    return rawCatalogEntity;
+    return findCatalogByName(name)
+        .orElseThrow(() -> new NotFoundException("Catalog %s not found", name));
   }
 
   /**
@@ -748,15 +740,6 @@ public class PolarisAdminService {
     return listCatalogsUnsafe();
   }
 
-  private PolarisEntity redactCredentials(PolarisEntity entity) {
-    if (entity.getPropertiesAsMap().containsKey("credential")) {
-      entity = new PolarisEntity.Builder(entity)
-          .addProperty("credential", "<redacted>")
-          .build();
-    }
-    return entity;
-  }
-
   /**
    * List all catalogs without checking for permission. May contain NULLs due to multiple non-atomic
    * API calls to the persistence layer. Specifically, this can happen when a PolarisEntity is
@@ -774,8 +757,8 @@ public class PolarisAdminService {
         .stream()
         .map(
             nameAndId ->
-                redactCredentials(PolarisEntity.of(
-                    metaStoreManager.loadEntity(getCurrentPolarisContext(), 0, nameAndId.getId()))))
+                PolarisEntity.of(
+                    metaStoreManager.loadEntity(getCurrentPolarisContext(), 0, nameAndId.getId())))
         .toList();
   }
 
