@@ -617,16 +617,8 @@ public class PolarisAdminService {
     PolarisAuthorizableOperation op = PolarisAuthorizableOperation.GET_CATALOG;
     authorizeBasicTopLevelEntityOperationOrThrow(op, name, PolarisEntityType.CATALOG);
 
-    CatalogEntity rawCatalogEntity =
-        findCatalogByName(name)
-            .orElseThrow(() -> new NotFoundException("Catalog %s not found", name));
-    if (rawCatalogEntity.getPropertiesAsMap().containsKey("credential")) {
-      rawCatalogEntity =
-          new CatalogEntity.Builder(rawCatalogEntity)
-              .addProperty("credential", "<redacted>")
-              .build();
-    }
-    return rawCatalogEntity;
+    return findCatalogByName(name)
+        .orElseThrow(() -> new NotFoundException("Catalog %s not found", name));
   }
 
   /**
@@ -746,15 +738,6 @@ public class PolarisAdminService {
   public List<PolarisEntity> listCatalogs() {
     authorizeBasicRootOperationOrThrow(PolarisAuthorizableOperation.LIST_CATALOGS);
     return listCatalogsUnsafe();
-  }
-
-  private PolarisEntity redactCredentials(PolarisEntity entity) {
-    if (entity.getPropertiesAsMap().containsKey("credential")) {
-      entity = new PolarisEntity.Builder(entity)
-          .addProperty("credential", "<redacted>")
-          .build();
-    }
-    return entity;
   }
 
   /**
