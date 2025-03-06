@@ -935,6 +935,8 @@ public class PolarisMetaStoreManagerImpl extends BaseMetaStoreManager {
         ms.lookupEntityInCurrentTxn(callCtx, entity.getCatalogId(), entity.getId());
     if (entityFound != null) {
       // probably the client retried, simply return it
+      // TODO: Check correctness of returning entityFound vs entity here. It may have already
+      // been updated after the creation.
       return new EntityResult(entityFound);
     }
 
@@ -1036,6 +1038,18 @@ public class PolarisMetaStoreManagerImpl extends BaseMetaStoreManager {
 
     // check that the version of the entity has not changed at all to avoid concurrent updates
     if (entityRefreshed.getEntityVersion() != entity.getEntityVersion()) {
+      // TODO: Check if this is a bug that might cause grantRecordVersions to go backwards. The
+      // behavior for grantRecordVersions updates could be either to still allow the update
+      // while taking the higher grantRecordsVersion, or to hard-fail. If we still allow the
+      // update, then we're only guaranteeing that the caller was authorized for the update
+      // *at some point in time* in the vicinity of an updated grant. If we don't have retries
+      // that re-fetch the entity properties and try to re-apply updates server-side this is
+      // probably fine, but if we do have server-side retries *after* grantRecordVersion
+      // resolution, this could mean a bug where a grant is revoked before something else
+      // already modifies the table in a way that is only safe with that grant revoked,
+      // while the retry will allow the update to go through. If we consider grantRecordsVersion
+      // a strict part of the version comparison here then we have well-ordering guarantees.
+      // TODO: Give useful extraInformation
       return new EntityResult(BaseResult.ReturnStatus.TARGET_ENTITY_CONCURRENTLY_MODIFIED, null);
     }
 

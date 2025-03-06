@@ -85,7 +85,8 @@ public interface BasePersistence {
    * @param originalEntities original states of the entity to use for compare-and-swap purposes, or
    *     null if this is expected to be a brand-new entity; must contain exactly as many elements as
    *     {@code entities} where each item corresponds to the element of {@code entities} in the same
-   *     index as this list.
+   *     index as this list. If non-null, we expect all elements of originalEntities to be non-null;
+   *     there is no mix-and-match "create" and "update" in a single batch.
    */
   void writeEntities(
       @Nonnull PolarisCallContext callCtx,

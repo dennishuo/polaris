@@ -150,6 +150,8 @@ public abstract class BaseMetaStoreManager implements PolarisMetaStoreManager {
     callCtx.getDiagServices().check(entity.getCreateTimestamp() != 0, "null_create_timestamp");
 
     // this is the first change
+    // TODO: Make immutable; make sure no caller depends on the input entity actually
+    // being changed.
     entity.setLastUpdateTimestamp(entity.getCreateTimestamp());
 
     // set all other timestamps to 0
@@ -232,6 +234,8 @@ public abstract class BaseMetaStoreManager implements PolarisMetaStoreManager {
     }
 
     // update last update timestamp and increment entity version
+    // TODO: Make immutable; make sure no caller depends on the input entity actually
+    // being changed.
     entity.setLastUpdateTimestamp(now);
     entity.setEntityVersion(entity.getEntityVersion() + 1);
     return entity;

@@ -33,6 +33,8 @@ import org.apache.polaris.core.entity.PolarisEntityId;
 import org.apache.polaris.core.entity.PolarisEntityType;
 import org.apache.polaris.core.entity.PolarisGrantRecord;
 import org.apache.polaris.core.entity.PolarisPrincipalSecrets;
+import org.apache.polaris.core.persistence.EntityAlreadyExistsException;
+import org.apache.polaris.core.persistence.RetryOnConcurrencyException;
 import org.apache.polaris.core.storage.PolarisStorageConfigurationInfo;
 import org.apache.polaris.core.storage.PolarisStorageIntegration;
 
@@ -129,6 +131,55 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     return runInTransaction(callCtx, () -> this.generateNewIdInCurrentTxn(callCtx));
   }
 
+  /**
+   * Helper to perform the compare-and-swap semantics of a single writeEntity call.
+   */
+  private void checkConditionsForWriteEntityInCurrentTxn(
+      @Nonnull PolarisCallContext callCtx,
+      @Nonnull PolarisBaseEntity entity,
+      @Nullable PolarisBaseEntity originalEntity) {
+    PolarisBaseEntity refreshedEntity =
+        this.lookupEntityInCurrentTxn(callCtx, entity.getCatalogId(), entity.getId());
+
+    if (originalEntity == null) {
+      if (refreshedEntity != null) {
+        // If this is a "create", and we manage to look up an existing entity with already
+        // the same id, where ids are uniquely reserved when generated, it means it's a
+        // low-level retry possibly in the face of a transient connectivity failure to
+        // the backend database.
+        throw new EntityAlreadyExistsException(refreshedEntity);
+      } else {
+        // Successfully verified the entity doesn't already exist by-id, but for a "create"
+        // we must also check for name-collection now.
+        refreshedEntity =
+            this.lookupEntityByNameInCurrentTxn(
+                callCtx,
+                entity.getCatalogId(),
+                entity.getParentId(),
+                entity.getType().getCode(),
+                entity.getName());
+        if (refreshedEntity != null) {
+          // Name-collision conflict.
+          throw new EntityAlreadyExistsException(refreshedEntity);
+        }
+      }
+    } else {
+      // This is an "update".
+      if (refreshedEntity == null
+          || refreshedEntity.getEntityVersion() != originalEntity.getEntityVersion()
+          || refreshedEntity.getGrantRecordsVersion() != originalEntity.getGrantRecordsVersion()) {
+        // TODO: Better standardization of exception types, possibly make the ones that are
+        // really part of the persistence contract be CheckedExceptions.
+        throw new RetryOnConcurrencyException(
+            "Entity '%s' id '%s' concurrently modified; expected version %s/%s got %s/%s",
+            entity.getName(), entity.getId(),
+            originalEntity.getEntityVersion(), originalEntity.getGrantRecordsVersion(),
+            refreshedEntity != null ? refreshedEntity.getEntityVersion() : -1,
+            refreshedEntity != null ? refreshedEntity.getGrantRecordsVersion() : -1);
+      }
+    }
+  }
+
   /** {@inheritDoc} */
   @Override
   public void writeEntity(
@@ -138,7 +189,10 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nullable PolarisBaseEntity originalEntity) {
     runActionInTransaction(
         callCtx,
-        () -> this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity));
+        () -> {
+          this.checkConditionsForWriteEntityInCurrentTxn(callCtx, entity, originalEntity);
+          this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
+        });
   }
 
   /** {@inheritDoc} */
@@ -147,7 +201,39 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull PolarisCallContext callCtx,
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    if (originalEntities != null) {
+      callCtx.getDiagServices().check(entities.size() == originalEntities.size(),
+          "mismatched_entities_and_original_entities_size",
+          "entities.size()={}, originalEntities.size()={}",
+          entities.size(), originalEntities.size());
+    }
+    runActionInTransaction(
+        callCtx,
+        () -> {
+          // Validate and write each one independently so that we can also detect conflicting
+          // writes to the same entity id within a given batch (so that previously written
+          // ones will be seen during validation of the later item).
+          for (int i = 0; i < entities.size(); ++i) {
+            PolarisBaseEntity entity = entities.get(i);
+            PolarisBaseEntity originalEntity =
+                originalEntities != null ? originalEntities.get(i) : null;
+            boolean nameOrParentChanged = originalEntity == null ||
+                !entity.getName().equals(originalEntity.getName()) ||
+                entity.getParentId() != originalEntity.getParentId();
+            try {
+              this.checkConditionsForWriteEntityInCurrentTxn(callCtx, entity, originalEntity);
+            } catch (EntityAlreadyExistsException e) {
+              // If the ids are equal then it is an idempotent-create-retry error, which counts
+              // as a "success" for multi-entity commit purposes; name-collisions on different
+              // ids counts as a true error that we rethrow.
+              if (e.getExistingEntity().getId() != entity.getId()) {
+                throw e;
+              }
+              // Else silently swallow the apparent create-retry
+            }
+            this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
+          }
+        });
   }
 
   /** {@inheritDoc} */
@@ -456,8 +542,6 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull PolarisBaseEntity entity,
       boolean nameOrParentChanged,
       @Nullable PolarisBaseEntity originalEntity) {
-    // TODO: Pull down relevant compare-and-swap semantics from PolarisMetaStoreManagerImpl
-    // into this layer.
     writeToEntitiesInCurrentTxn(callCtx, entity);
     writeToEntitiesChangeTrackingInCurrentTxn(callCtx, entity);
 
@@ -478,7 +562,21 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull PolarisCallContext callCtx,
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    if (originalEntities != null) {
+      callCtx.getDiagServices().check(entities.size() == originalEntities.size(),
+          "mismatched_entities_and_original_entities_size",
+          "entities.size()={}, originalEntities.size()={}",
+          entities.size(), originalEntities.size());
+    }
+    for (int i = 0; i < entities.size(); ++i) {
+      PolarisBaseEntity entity = entities.get(i);
+      PolarisBaseEntity originalEntity =
+          originalEntities != null ? originalEntities.get(i) : null;
+      boolean nameOrParentChanged = originalEntity == null ||
+          !entity.getName().equals(originalEntity.getName()) ||
+          entity.getParentId() != originalEntity.getParentId();
+      this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
+    }
   }
 
   /** {@inheritDoc} */
