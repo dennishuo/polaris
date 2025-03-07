@@ -46,8 +46,6 @@ import org.apache.polaris.core.entity.PolarisGrantRecord;
 import org.apache.polaris.core.entity.PolarisPrincipalSecrets;
 import org.apache.polaris.core.entity.PolarisPrivilege;
 import org.apache.polaris.core.entity.PolarisTaskConstants;
-import org.apache.polaris.core.persistence.EntityAlreadyExistsException;
-import org.apache.polaris.core.persistence.RetryOnConcurrencyException;
 import org.apache.polaris.core.persistence.dao.entity.BaseResult;
 import org.apache.polaris.core.persistence.dao.entity.ChangeTrackingResult;
 import org.apache.polaris.core.persistence.dao.entity.CreateCatalogResult;
@@ -103,12 +101,10 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     // delete ALL grant records to (if the entity is a grantee) and from that entity
     final List<PolarisGrantRecord> grantsOnGrantee =
         (entity.getType().isGrantee())
-            ? ms.loadAllGrantRecordsOnGrantee(
-                callCtx, entity.getCatalogId(), entity.getId())
+            ? ms.loadAllGrantRecordsOnGrantee(callCtx, entity.getCatalogId(), entity.getId())
             : List.of();
     final List<PolarisGrantRecord> grantsOnSecurable =
-        ms.loadAllGrantRecordsOnSecurable(
-            callCtx, entity.getCatalogId(), entity.getId());
+        ms.loadAllGrantRecordsOnSecurable(callCtx, entity.getCatalogId(), entity.getId());
     ms.deleteAllEntityGrantRecords(callCtx, entity, grantsOnGrantee, grantsOnSecurable);
 
     // Now determine the set of entities on the other side of the grants we just removed. Grants
@@ -541,15 +537,17 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // now looking the entity by name
     // DO_NOT_SUBMIT: fix
-    long catalogId = catalogPath == null || catalogPath.size() == 0
-        ? 0l : catalogPath.get(0).getId();
-    long parentId = catalogPath == null || catalogPath.size() == 0
-        ? 0l : catalogPath.get(catalogPath.size() - 1).getId();
+    long catalogId =
+        catalogPath == null || catalogPath.size() == 0 ? 0l : catalogPath.get(0).getId();
+    long parentId =
+        catalogPath == null || catalogPath.size() == 0
+            ? 0l
+            : catalogPath.get(catalogPath.size() - 1).getId();
     PolarisBaseEntity entity =
         ms.lookupEntityByName(
             callCtx,
-            //resolver.getCatalogIdOrNull(),
-            //resolver.getParentId(),
+            // resolver.getCatalogIdOrNull(),
+            // resolver.getParentId(),
             catalogId,
             parentId,
             entityType.getCode(),
@@ -600,13 +598,18 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // return list of active entities
     // DO_NOT_SUBMIT: fix
-    long catalogId = catalogPath == null || catalogPath.size() == 0
-        ? 0l : catalogPath.get(0).getId();
-    long parentId = catalogPath == null || catalogPath.size() == 0
-        ? 0l : catalogPath.get(catalogPath.size() - 1).getId();
+    long catalogId =
+        catalogPath == null || catalogPath.size() == 0 ? 0l : catalogPath.get(0).getId();
+    long parentId =
+        catalogPath == null || catalogPath.size() == 0
+            ? 0l
+            : catalogPath.get(catalogPath.size() - 1).getId();
     List<EntityNameLookupRecord> toreturnList =
         ms.listEntities(
-            callCtx, catalogId /*resolver.getCatalogIdOrNull()*/, parentId /*resolver.getParentId()*/, entityType);
+            callCtx,
+            catalogId /*resolver.getCatalogIdOrNull()*/,
+            parentId /*resolver.getParentId()*/,
+            entityType);
 
     // prune the returned list with only entities matching the entity subtype
     if (entitySubType != PolarisEntitySubType.ANY_SUBTYPE) {
@@ -711,7 +714,8 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // generate new secrets for this principal
     PolarisPrincipalSecrets principalSecrets =
-        ((IntegrationPersistence) ms).generateNewPrincipalSecrets(callCtx, principal.getName(), principal.getId());
+        ((IntegrationPersistence) ms)
+            .generateNewPrincipalSecrets(callCtx, principal.getName(), principal.getId());
 
     // generate properties
     Map<String, String> internalProperties = getInternalPropertyMap(callCtx, principal);
@@ -786,8 +790,8 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
                     PolarisEntityConstants.PRINCIPAL_CREDENTIAL_ROTATION_REQUIRED_STATE)
                 != null;
     PolarisPrincipalSecrets secrets =
-        ((IntegrationPersistence) ms).rotatePrincipalSecrets(
-            callCtx, clientId, principalId, doReset, oldSecretHash);
+        ((IntegrationPersistence) ms)
+            .rotatePrincipalSecrets(callCtx, clientId, principalId, doReset, oldSecretHash);
 
     if (reset
         && !internalProps.containsKey(
@@ -822,8 +826,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // need to run inside a read/write transaction
     PolarisPrincipalSecrets secrets =
-        this.rotatePrincipalSecrets(
-            callCtx, ms, clientId, principalId, reset, oldSecretHash);
+        this.rotatePrincipalSecrets(callCtx, ms, clientId, principalId, reset, oldSecretHash);
 
     return (secrets == null)
         ? new PrincipalSecretsResult(BaseResult.ReturnStatus.ENTITY_NOT_FOUND, null)
@@ -849,12 +852,13 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     // and the catalog should not have an internal property of storage identifier or id yet
     if (storageConfigInfoStr != null && integrationIdentifierOrId == null) {
       integration =
-          ((IntegrationPersistence) ms).createStorageIntegration(
-              callCtx,
-              catalog.getCatalogId(),
-              catalog.getId(),
-              PolarisStorageConfigurationInfo.deserialize(
-                  callCtx.getDiagServices(), storageConfigInfoStr));
+          ((IntegrationPersistence) ms)
+              .createStorageIntegration(
+                  callCtx,
+                  catalog.getCatalogId(),
+                  catalog.getId(),
+                  PolarisStorageConfigurationInfo.deserialize(
+                      callCtx.getDiagServices(), storageConfigInfoStr));
     } else {
       integration = null;
     }
@@ -876,8 +880,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     callCtx.getDiagServices().checkNotNull(entity.getName(), "unexpected_null_entity_name");
 
     // first, check if the entity has already been created, in which case we will simply return it
-    PolarisBaseEntity entityFound =
-        ms.lookupEntity(callCtx, entity.getCatalogId(), entity.getId());
+    PolarisBaseEntity entityFound = ms.lookupEntity(callCtx, entity.getCatalogId(), entity.getId());
     if (entityFound != null) {
       // probably the client retried, simply return it
       return new EntityResult(entityFound);
@@ -931,8 +934,8 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     BasePersistence ms = callCtx.getMetaStore();
     List<PolarisBaseEntity> createdEntities = new ArrayList<>(entities.size());
     for (PolarisBaseEntity entity : entities) {
-      PolarisBaseEntity entityToCreate = prepareToPersistNewEntity(
-          callCtx, ms, new PolarisBaseEntity(entity));
+      PolarisBaseEntity entityToCreate =
+          prepareToPersistNewEntity(callCtx, ms, new PolarisBaseEntity(entity));
       createdEntities.add(entityToCreate);
     }
 
@@ -941,7 +944,8 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     } catch (EntityAlreadyExistsException e) {
       return new EntitiesResult(
           BaseResult.ReturnStatus.ENTITY_ALREADY_EXISTS,
-          String.format("Existing entity id: '%s', type %s subtype %s",
+          String.format(
+              "Existing entity id: '%s', type %s subtype %s",
               e.getExistingEntity().getId(),
               e.getExistingEntity().getTypeCode(),
               e.getExistingEntity().getSubTypeCode()));
@@ -1007,8 +1011,13 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     for (EntityWithPath entityWithPath : entities) {
       // Create a copy of the input to use as the "original".
       PolarisBaseEntity originalEntity = new PolarisBaseEntity(entityWithPath.getEntity());
-      PolarisBaseEntity updatedEntity = prepareToPersistEntityAfterChange(
-          callCtx, ms, new PolarisBaseEntity(entityWithPath.getEntity()), false, originalEntity);
+      PolarisBaseEntity updatedEntity =
+          prepareToPersistEntityAfterChange(
+              callCtx,
+              ms,
+              new PolarisBaseEntity(entityWithPath.getEntity()),
+              false,
+              originalEntity);
       originalEntities.add(originalEntity);
       updatedEntities.add(updatedEntity);
     }
@@ -1105,15 +1114,17 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // ensure that nothing exists where we create that entity
     // if this entity already exists, this is an error
-    long catalogId = newCatalogPath == null || newCatalogPath.size() == 0
-        ? 0l : newCatalogPath.get(0).getId();
-    long parentId = newCatalogPath == null || newCatalogPath.size() == 0
-        ? 0l : newCatalogPath.get(newCatalogPath.size() - 1).getId();
+    long catalogId =
+        newCatalogPath == null || newCatalogPath.size() == 0 ? 0l : newCatalogPath.get(0).getId();
+    long parentId =
+        newCatalogPath == null || newCatalogPath.size() == 0
+            ? 0l
+            : newCatalogPath.get(newCatalogPath.size() - 1).getId();
     EntityNameLookupRecord entityActiveRecord =
         ms.lookupEntityIdAndSubTypeByName(
             callCtx,
-            //resolver.getCatalogIdOrNull(),
-            //resolver.getParentId(),
+            // resolver.getCatalogIdOrNull(),
+            // resolver.getParentId(),
             catalogId,
             parentId,
             refreshEntityToRename.getTypeCode(),
@@ -1143,8 +1154,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     // version. Indicate that the nameOrParent changed, so so that we also update any by-name
     // lookups if applicable
     PolarisBaseEntity renamedEntityToReturn =
-        this.persistEntityAfterChange(
-            callCtx, ms, refreshEntityToRename, true, originalEntity);
+        this.persistEntityAfterChange(callCtx, ms, refreshEntityToRename, true, originalEntity);
     return new EntityResult(renamedEntityToReturn);
   }
 
@@ -1305,47 +1315,47 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
    * @param grantee the grantee
    * @return resolver for the specified entities
    */
-//  private @Nonnull PolarisEntityResolver resolveRoleToGranteeUsageGrant(
-//      @Nonnull PolarisCallContext callCtx,
-//      @Nonnull BasePersistence ms,
-//      @Nullable PolarisEntityCore catalog,
-//      @Nonnull PolarisEntityCore role,
-//      @Nonnull PolarisEntityCore grantee) {
-//
-//    // validate the grantee input
-//    callCtx.getDiagServices().checkNotNull(grantee, "unexpected_null_grantee");
-//    callCtx
-//        .getDiagServices()
-//        .check(grantee.getType().isGrantee(), "not_a_grantee", "grantee={}", grantee);
-//
-//    // validate role
-//    callCtx.getDiagServices().checkNotNull(role, "unexpected_null_role");
-//
-//    // role should be a catalog or a principal role
-//    boolean isCatalogRole = role.getTypeCode() == PolarisEntityType.CATALOG_ROLE.getCode();
-//    boolean isPrincipalRole = role.getTypeCode() == PolarisEntityType.PRINCIPAL_ROLE.getCode();
-//    callCtx.getDiagServices().check(isCatalogRole || isPrincipalRole, "not_a_role");
-//
-//    // if the role is a catalog role, ensure a catalog is specified and
-//    // vice-versa, catalog should be null if the role is a principal role
-//    callCtx
-//        .getDiagServices()
-//        .check(
-//            (catalog == null && isPrincipalRole) || (catalog != null && isCatalogRole),
-//            "catalog_mismatch",
-//            "catalog={} role={}",
-//            catalog,
-//            role);
-//
-//    // re-resolve now all these entities
-//    List<PolarisEntityCore> otherTopLevelEntities = new ArrayList<>(2);
-//    otherTopLevelEntities.add(role);
-//    otherTopLevelEntities.add(grantee);
-//
-//    // ensure these entities have not changed
-//    return new PolarisEntityResolver(
-//        callCtx, ms, catalog != null ? List.of(catalog) : null, null, otherTopLevelEntities);
-//  }
+  //  private @Nonnull PolarisEntityResolver resolveRoleToGranteeUsageGrant(
+  //      @Nonnull PolarisCallContext callCtx,
+  //      @Nonnull BasePersistence ms,
+  //      @Nullable PolarisEntityCore catalog,
+  //      @Nonnull PolarisEntityCore role,
+  //      @Nonnull PolarisEntityCore grantee) {
+  //
+  //    // validate the grantee input
+  //    callCtx.getDiagServices().checkNotNull(grantee, "unexpected_null_grantee");
+  //    callCtx
+  //        .getDiagServices()
+  //        .check(grantee.getType().isGrantee(), "not_a_grantee", "grantee={}", grantee);
+  //
+  //    // validate role
+  //    callCtx.getDiagServices().checkNotNull(role, "unexpected_null_role");
+  //
+  //    // role should be a catalog or a principal role
+  //    boolean isCatalogRole = role.getTypeCode() == PolarisEntityType.CATALOG_ROLE.getCode();
+  //    boolean isPrincipalRole = role.getTypeCode() == PolarisEntityType.PRINCIPAL_ROLE.getCode();
+  //    callCtx.getDiagServices().check(isCatalogRole || isPrincipalRole, "not_a_role");
+  //
+  //    // if the role is a catalog role, ensure a catalog is specified and
+  //    // vice-versa, catalog should be null if the role is a principal role
+  //    callCtx
+  //        .getDiagServices()
+  //        .check(
+  //            (catalog == null && isPrincipalRole) || (catalog != null && isCatalogRole),
+  //            "catalog_mismatch",
+  //            "catalog={} role={}",
+  //            catalog,
+  //            role);
+  //
+  //    // re-resolve now all these entities
+  //    List<PolarisEntityCore> otherTopLevelEntities = new ArrayList<>(2);
+  //    otherTopLevelEntities.add(role);
+  //    otherTopLevelEntities.add(grantee);
+  //
+  //    // ensure these entities have not changed
+  //    return new PolarisEntityResolver(
+  //        callCtx, ms, catalog != null ? List.of(catalog) : null, null, otherTopLevelEntities);
+  //  }
 
   /**
    * Helper function to resolve the securable to role grant privilege
@@ -1355,28 +1365,28 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
    * @param securable securable entity, must have been resolved by the client
    * @return a resolver for the role, the catalog path and the securable
    */
-//  private PolarisEntityResolver resolveSecurableToRoleGrant(
-//      @Nonnull PolarisCallContext callCtx,
-//      @Nonnull BasePersistence ms,
-//      @Nonnull PolarisEntityCore grantee,
-//      @Nullable List<PolarisEntityCore> catalogPath,
-//      @Nonnull PolarisEntityCore securable) {
-//    // validate role input
-//    callCtx.getDiagServices().checkNotNull(grantee, "unexpected_null_grantee");
-//    callCtx
-//        .getDiagServices()
-//        .check(grantee.getType().isGrantee(), "not_grantee_type", "grantee={}", grantee);
-//
-//    // securable must be supplied
-//    callCtx.getDiagServices().checkNotNull(securable, "unexpected_null_securable");
-//    if (securable.getCatalogId() > 0) {
-//      // catalogPath must be supplied if the securable has a catalogId
-//      callCtx.getDiagServices().checkNotNull(catalogPath, "unexpected_null_catalogPath");
-//    }
-//
-//    // re-resolve now all these entities
-//    return new PolarisEntityResolver(callCtx, ms, catalogPath, securable, List.of(grantee));
-//  }
+  //  private PolarisEntityResolver resolveSecurableToRoleGrant(
+  //      @Nonnull PolarisCallContext callCtx,
+  //      @Nonnull BasePersistence ms,
+  //      @Nonnull PolarisEntityCore grantee,
+  //      @Nullable List<PolarisEntityCore> catalogPath,
+  //      @Nonnull PolarisEntityCore securable) {
+  //    // validate role input
+  //    callCtx.getDiagServices().checkNotNull(grantee, "unexpected_null_grantee");
+  //    callCtx
+  //        .getDiagServices()
+  //        .check(grantee.getType().isGrantee(), "not_grantee_type", "grantee={}", grantee);
+  //
+  //    // securable must be supplied
+  //    callCtx.getDiagServices().checkNotNull(securable, "unexpected_null_securable");
+  //    if (securable.getCatalogId() > 0) {
+  //      // catalogPath must be supplied if the securable has a catalogId
+  //      callCtx.getDiagServices().checkNotNull(catalogPath, "unexpected_null_catalogPath");
+  //    }
+  //
+  //    // re-resolve now all these entities
+  //    return new PolarisEntityResolver(callCtx, ms, catalogPath, securable, List.of(grantee));
+  //  }
 
   /**
    * See {@link #grantUsageOnRoleToGrantee(PolarisCallContext, PolarisEntityCore, PolarisEntityCore,
@@ -1522,7 +1532,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     // get metastore we should be using
     BasePersistence ms = callCtx.getMetaStore();
     return this.grantPrivilegeOnSecurableToRole(
-                callCtx, ms, grantee, catalogPath, securable, privilege);
+        callCtx, ms, grantee, catalogPath, securable, privilege);
   }
 
   /**
@@ -1579,7 +1589,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     // get metastore we should be using
     BasePersistence ms = callCtx.getMetaStore();
     return this.revokePrivilegeOnSecurableFromRole(
-                callCtx, ms, grantee, catalogPath, securable, privilege);
+        callCtx, ms, grantee, catalogPath, securable, privilege);
   }
 
   /** {@link #loadGrantsOnSecurable(PolarisCallContext, long, long)} */
@@ -1637,8 +1647,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
       long granteeId) {
 
     // lookup grants version for this grantee entity
-    int grantsVersion =
-        ms.lookupEntityGrantRecordsVersion(callCtx, granteeCatalogId, granteeId);
+    int grantsVersion = ms.lookupEntityGrantRecordsVersion(callCtx, granteeCatalogId, granteeId);
 
     // return null if grantee does not exists
     if (grantsVersion == 0) {
@@ -1752,7 +1761,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     final AtomicInteger failedLeaseCount = new AtomicInteger(0);
     availableTasks.forEach(
         task -> {
-          PolarisBaseEntity originalTask = new PolarisBaseEntity(task);
+          PolarisBaseEntity updatedTask = new PolarisBaseEntity(task);
           Map<String, String> properties =
               PolarisObjectMapperUtil.deserializeProperties(callCtx, task.getProperties());
           properties.put(PolarisTaskConstants.LAST_ATTEMPT_EXECUTOR_ID, executorId);
@@ -1764,14 +1773,12 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
               String.valueOf(
                   Integer.parseInt(properties.getOrDefault(PolarisTaskConstants.ATTEMPT_COUNT, "0"))
                       + 1));
-          task.setEntityVersion(task.getEntityVersion() + 1);
-          task.setProperties(PolarisObjectMapperUtil.serializeProperties(callCtx, properties));
-          try {
-            // Try to lease each task individually; we'll just return whatever we manage to get.
-            ms.writeEntity(callCtx, task, false, originalTask);
-            loadedTasks.add(task);
-          } catch (RetryOnConcurrencyException e) {
-            e.printStackTrace();
+          updatedTask.setProperties(
+              PolarisObjectMapperUtil.serializeProperties(callCtx, properties));
+          EntityResult result = updateEntityPropertiesIfNotChanged(callCtx, ms, null, updatedTask);
+          if (result.getReturnStatus() == BaseResult.ReturnStatus.SUCCESS) {
+            loadedTasks.add(result.getEntity());
+          } else {
             failedLeaseCount.getAndIncrement();
           }
         });
@@ -1781,6 +1788,11 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     // hitting concurrency errors, we need to just throw a concurrency exception rather than
     // returning an empty list.
     if (loadedTasks.isEmpty() && failedLeaseCount.get() > 0) {
+      // TODO: Currently the contract defined by BasePolarisMetaStoreManagerTest expects either
+      // a thrown RetryOnConcurrencyException or else a successful EntitiesResult in the face
+      // of concurrent loadTasks calls; this is inconsistent with the rest of the
+      // PolarisMetaStoreManager interface where everything is supposed to encapsulate errors
+      // in the Result type instead of throwing. But for now, we'll throw.
       throw new RetryOnConcurrencyException(
           "Failed to lease any of %s tasks due to concurrent leases", failedLeaseCount.get());
     }
@@ -1821,7 +1833,8 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // get storage integration
     PolarisStorageIntegration<PolarisStorageConfigurationInfo> storageIntegration =
-        ((IntegrationPersistence) ms).loadPolarisStorageIntegration(callCtx, reloadedEntity.getEntity());
+        ((IntegrationPersistence) ms)
+            .loadPolarisStorageIntegration(callCtx, reloadedEntity.getEntity());
 
     // cannot be null
     callCtx
@@ -1874,7 +1887,8 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // get storage integration, expect not null
     PolarisStorageIntegration<PolarisStorageConfigurationInfo> storageIntegration =
-        ((IntegrationPersistence) ms).loadPolarisStorageIntegration(callCtx, reloadedEntity.getEntity());
+        ((IntegrationPersistence) ms)
+            .loadPolarisStorageIntegration(callCtx, reloadedEntity.getEntity());
     callCtx
         .getDiagServices()
         .checkNotNull(
@@ -1937,13 +1951,10 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     final List<PolarisGrantRecord> grantRecords;
     if (entity.getType().isGrantee()) {
       grantRecords =
-          new ArrayList<>(
-              ms.loadAllGrantRecordsOnGrantee(callCtx, entityCatalogId, entityId));
-      grantRecords.addAll(
-          ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId));
+          new ArrayList<>(ms.loadAllGrantRecordsOnGrantee(callCtx, entityCatalogId, entityId));
+      grantRecords.addAll(ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId));
     } else {
-      grantRecords =
-          ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId);
+      grantRecords = ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId);
     }
 
     // return the result
@@ -1970,8 +1981,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // load that entity
     PolarisBaseEntity entity =
-        ms.lookupEntityByName(
-            callCtx, entityCatalogId, parentId, entityType.getCode(), entityName);
+        ms.lookupEntityByName(callCtx, entityCatalogId, parentId, entityType.getCode(), entityName);
 
     // null if entity not found
     if (entity == null) {
@@ -1983,13 +1993,11 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     if (entity.getType().isGrantee()) {
       grantRecords =
           new ArrayList<>(
-              ms.loadAllGrantRecordsOnGrantee(
-                  callCtx, entityCatalogId, entity.getId()));
+              ms.loadAllGrantRecordsOnGrantee(callCtx, entityCatalogId, entity.getId()));
       grantRecords.addAll(
           ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entity.getId()));
     } else {
-      grantRecords =
-          ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entity.getId());
+      grantRecords = ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entity.getId());
     }
 
     // return the result
@@ -2023,8 +2031,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
               PolarisEntitySubType.NULL_SUBTYPE,
               PolarisEntityConstants.getRootEntityId(),
               PolarisEntityConstants.getRootContainerName());
-      EntityResult backfillResult =
-          this.createEntityIfNotExists(callCtx, ms, null, rootContainer);
+      EntityResult backfillResult = this.createEntityIfNotExists(callCtx, ms, null, rootContainer);
       if (backfillResult.isSuccess()) {
         PolarisBaseEntity serviceAdminRole =
             ms.lookupEntityByName(
@@ -2035,18 +2042,14 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
                 PolarisEntityConstants.getNameOfPrincipalServiceAdminRole());
         if (serviceAdminRole != null) {
           this.persistNewGrantRecord(
-              callCtx,
-              ms,
-              rootContainer,
-              serviceAdminRole,
-              PolarisPrivilege.SERVICE_MANAGE_ACCESS);
+              callCtx, ms, rootContainer, serviceAdminRole, PolarisPrivilege.SERVICE_MANAGE_ACCESS);
         }
       }
 
       // Redo the lookup in a separate read transaction.
       result =
-                  this.loadResolvedEntityByName(
-                      callCtx, ms, entityCatalogId, parentId, entityType, entityName);
+          this.loadResolvedEntityByName(
+              callCtx, ms, entityCatalogId, parentId, entityType, entityName);
     }
     return result;
   }
@@ -2063,8 +2066,7 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // load version information
     PolarisChangeTrackingVersions entityVersions =
-        ms.lookupEntityVersions(
-                callCtx, List.of(new PolarisEntityId(entityCatalogId, entityId)))
+        ms.lookupEntityVersions(callCtx, List.of(new PolarisEntityId(entityCatalogId, entityId)))
             .get(0);
 
     // if null, the entity has been purged
@@ -2091,13 +2093,10 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
     if (entityVersions.getGrantRecordsVersion() != entityGrantRecordsVersion) {
       if (entityType.isGrantee()) {
         grantRecords =
-            new ArrayList<>(
-                ms.loadAllGrantRecordsOnGrantee(callCtx, entityCatalogId, entityId));
-        grantRecords.addAll(
-            ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId));
+            new ArrayList<>(ms.loadAllGrantRecordsOnGrantee(callCtx, entityCatalogId, entityId));
+        grantRecords.addAll(ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId));
       } else {
-        grantRecords =
-            ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId);
+        grantRecords = ms.loadAllGrantRecordsOnSecurable(callCtx, entityCatalogId, entityId);
       }
     } else {
       grantRecords = null;
@@ -2121,12 +2120,12 @@ public class NonTransactionalMetaStoreManager extends BaseMetaStoreManager {
 
     // need to run inside a read transaction
     return this.refreshResolvedEntity(
-                callCtx,
-                ms,
-                entityVersion,
-                entityGrantRecordsVersion,
-                entityType,
-                entityCatalogId,
-                entityId);
+        callCtx,
+        ms,
+        entityVersion,
+        entityGrantRecordsVersion,
+        entityType,
+        entityCatalogId,
+        entityId);
   }
 }
