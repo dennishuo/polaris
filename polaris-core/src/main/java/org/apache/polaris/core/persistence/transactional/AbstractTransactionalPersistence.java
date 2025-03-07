@@ -131,9 +131,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     return runInTransaction(callCtx, () -> this.generateNewIdInCurrentTxn(callCtx));
   }
 
-  /**
-   * Helper to perform the compare-and-swap semantics of a single writeEntity call.
-   */
+  /** Helper to perform the compare-and-swap semantics of a single writeEntity call. */
   private void checkConditionsForWriteEntityInCurrentTxn(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisBaseEntity entity,
@@ -172,8 +170,10 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
         // really part of the persistence contract be CheckedExceptions.
         throw new RetryOnConcurrencyException(
             "Entity '%s' id '%s' concurrently modified; expected version %s/%s got %s/%s",
-            entity.getName(), entity.getId(),
-            originalEntity.getEntityVersion(), originalEntity.getGrantRecordsVersion(),
+            entity.getName(),
+            entity.getId(),
+            originalEntity.getEntityVersion(),
+            originalEntity.getGrantRecordsVersion(),
             refreshedEntity != null ? refreshedEntity.getEntityVersion() : -1,
             refreshedEntity != null ? refreshedEntity.getGrantRecordsVersion() : -1);
       }
@@ -202,10 +202,14 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities) {
     if (originalEntities != null) {
-      callCtx.getDiagServices().check(entities.size() == originalEntities.size(),
-          "mismatched_entities_and_original_entities_size",
-          "entities.size()={}, originalEntities.size()={}",
-          entities.size(), originalEntities.size());
+      callCtx
+          .getDiagServices()
+          .check(
+              entities.size() == originalEntities.size(),
+              "mismatched_entities_and_original_entities_size",
+              "entities.size()={}, originalEntities.size()={}",
+              entities.size(),
+              originalEntities.size());
     }
     runActionInTransaction(
         callCtx,
@@ -217,9 +221,10 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
             PolarisBaseEntity entity = entities.get(i);
             PolarisBaseEntity originalEntity =
                 originalEntities != null ? originalEntities.get(i) : null;
-            boolean nameOrParentChanged = originalEntity == null ||
-                !entity.getName().equals(originalEntity.getName()) ||
-                entity.getParentId() != originalEntity.getParentId();
+            boolean nameOrParentChanged =
+                originalEntity == null
+                    || !entity.getName().equals(originalEntity.getName())
+                    || entity.getParentId() != originalEntity.getParentId();
             try {
               this.checkConditionsForWriteEntityInCurrentTxn(callCtx, entity, originalEntity);
             } catch (EntityAlreadyExistsException e) {
@@ -563,18 +568,22 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities) {
     if (originalEntities != null) {
-      callCtx.getDiagServices().check(entities.size() == originalEntities.size(),
-          "mismatched_entities_and_original_entities_size",
-          "entities.size()={}, originalEntities.size()={}",
-          entities.size(), originalEntities.size());
+      callCtx
+          .getDiagServices()
+          .check(
+              entities.size() == originalEntities.size(),
+              "mismatched_entities_and_original_entities_size",
+              "entities.size()={}, originalEntities.size()={}",
+              entities.size(),
+              originalEntities.size());
     }
     for (int i = 0; i < entities.size(); ++i) {
       PolarisBaseEntity entity = entities.get(i);
-      PolarisBaseEntity originalEntity =
-          originalEntities != null ? originalEntities.get(i) : null;
-      boolean nameOrParentChanged = originalEntity == null ||
-          !entity.getName().equals(originalEntity.getName()) ||
-          entity.getParentId() != originalEntity.getParentId();
+      PolarisBaseEntity originalEntity = originalEntities != null ? originalEntities.get(i) : null;
+      boolean nameOrParentChanged =
+          originalEntity == null
+              || !entity.getName().equals(originalEntity.getName())
+              || entity.getParentId() != originalEntity.getParentId();
       this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
     }
   }

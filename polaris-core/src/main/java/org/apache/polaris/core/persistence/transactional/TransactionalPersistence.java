@@ -121,13 +121,12 @@ public interface TransactionalPersistence extends BasePersistence, IntegrationPe
   /**
    * See {@link org.apache.polaris.core.persistence.BasePersistence#writeEntity}
    *
-   * NOTE: By virtue of the way callers of these *InCurrentTxn methods organize entity-state checks
-   * interspersed between different persistence actions, the basic compare-and-swap conditions are
-   * *not* expected to be enforced within these methods, in contrast to the analogous methods
-   * in BasePersistence. For example, BasePersistence::writeEntity is expected to use the
-   * entityVersion of originalEntity as part of an atomic conditional check before writing the
-   * new entity, but TransactionalPersistence::writeEntityInCurrentTxn is *not* expected to do
-   * the same.
+   * <p>NOTE: By virtue of the way callers of these *InCurrentTxn methods organize entity-state
+   * checks interspersed between different persistence actions, the basic compare-and-swap
+   * conditions are *not* expected to be enforced within these methods, in contrast to the analogous
+   * methods in BasePersistence. For example, BasePersistence::writeEntity is expected to use the
+   * entityVersion of originalEntity as part of an atomic conditional check before writing the new
+   * entity, but TransactionalPersistence::writeEntityInCurrentTxn is *not* expected to do the same.
    */
   void writeEntityInCurrentTxn(
       @Nonnull PolarisCallContext callCtx,
