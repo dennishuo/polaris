@@ -57,7 +57,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @return null if the specified entity does not exist or has been dropped.
    */
   @Nullable
-  protected abstract EntityNameLookupRecord lookupEntityActiveInCurrentTxn(
+  protected abstract EntityNameLookupRecord lookupEntityActive(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisEntitiesActiveKey entityActiveKey);
 
   /**
@@ -68,7 +68,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @param entity entity record to write, potentially replacing an existing entity record with the
    *     same key
    */
-  protected abstract void writeToEntitiesInCurrentTxn(
+  protected abstract void writeToEntities(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity);
 
   /**
@@ -79,7 +79,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @param entity entity record to write, potentially replacing an existing entity record with the
    *     same key
    */
-  protected abstract void writeToEntitiesActiveInCurrentTxn(
+  protected abstract void writeToEntitiesActive(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity);
 
   /**
@@ -90,7 +90,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @param entity entity record to write, potentially replacing an existing entity record with the
    *     same key
    */
-  protected abstract void writeToEntitiesChangeTrackingInCurrentTxn(
+  protected abstract void writeToEntitiesChangeTracking(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity);
 
   /**
@@ -99,7 +99,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @param callCtx call context
    * @param entity entity record to delete
    */
-  protected abstract void deleteFromEntitiesInCurrentTxn(
+  protected abstract void deleteFromEntities(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisEntityCore entity);
 
   /**
@@ -108,7 +108,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @param callCtx call context
    * @param entity entity record to delete
    */
-  protected abstract void deleteFromEntitiesActiveInCurrentTxn(
+  protected abstract void deleteFromEntitiesActive(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisEntityCore entity);
 
   /**
@@ -117,28 +117,27 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
    * @param callCtx call context
    * @param entity entity record to delete
    */
-  protected abstract void deleteFromEntitiesChangeTrackingInCurrentTxn(
+  protected abstract void deleteFromEntitiesChangeTracking(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisEntityCore entity);
 
   //
   // Implementations of the one-shot atomic BasePersistence methods which explicitly run
-  // the *InCurrentTxn variants of methods in a new transaction.
+  // the in-transaction variants of methods in a new transaction.
   //
 
   /** {@inheritDoc} */
   @Override
-  public long generateNewId(@Nonnull PolarisCallContext callCtx) {
-    return runInTransaction(callCtx, () -> this.generateNewIdInCurrentTxn(callCtx));
+  public long generateNewIdAtomically(@Nonnull PolarisCallContext callCtx) {
+    return runInTransaction(callCtx, () -> this.generateNewId(callCtx));
   }
 
   /** Helper to perform the compare-and-swap semantics of a single writeEntity call. */
-  private void checkConditionsForWriteEntityInCurrentTxn(
+  private void checkConditionsForWriteEntity(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisBaseEntity entity,
       @Nullable PolarisBaseEntity originalEntity) {
     PolarisBaseEntity refreshedEntity =
-        this.lookupEntityInCurrentTxn(
-            callCtx, entity.getCatalogId(), entity.getId(), entity.getTypeCode());
+        this.lookupEntity(callCtx, entity.getCatalogId(), entity.getId(), entity.getTypeCode());
 
     if (originalEntity == null) {
       if (refreshedEntity != null) {
@@ -151,7 +150,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
         // Successfully verified the entity doesn't already exist by-id, but for a "create"
         // we must also check for name-collection now.
         refreshedEntity =
-            this.lookupEntityByNameInCurrentTxn(
+            this.lookupEntityByName(
                 callCtx,
                 entity.getCatalogId(),
                 entity.getParentId(),
@@ -183,7 +182,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
 
   /** {@inheritDoc} */
   @Override
-  public void writeEntity(
+  public void writeEntityAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisBaseEntity entity,
       boolean nameOrParentChanged,
@@ -191,14 +190,14 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     runActionInTransaction(
         callCtx,
         () -> {
-          this.checkConditionsForWriteEntityInCurrentTxn(callCtx, entity, originalEntity);
-          this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
+          this.checkConditionsForWriteEntity(callCtx, entity, originalEntity);
+          this.writeEntity(callCtx, entity, nameOrParentChanged, originalEntity);
         });
   }
 
   /** {@inheritDoc} */
   @Override
-  public void writeEntities(
+  public void writeEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities) {
@@ -227,7 +226,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
                     || !entity.getName().equals(originalEntity.getName())
                     || entity.getParentId() != originalEntity.getParentId();
             try {
-              this.checkConditionsForWriteEntityInCurrentTxn(callCtx, entity, originalEntity);
+              this.checkConditionsForWriteEntity(callCtx, entity, originalEntity);
             } catch (EntityAlreadyExistsException e) {
               // If the ids are equal then it is an idempotent-create-retry error, which counts
               // as a "success" for multi-entity commit purposes; name-collisions on different
@@ -237,35 +236,35 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
               }
               // Else silently swallow the apparent create-retry
             }
-            this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
+            this.writeEntity(callCtx, entity, nameOrParentChanged, originalEntity);
           }
         });
   }
 
   /** {@inheritDoc} */
   @Override
-  public void writeToGrantRecords(
+  public void writeToGrantRecordsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisGrantRecord grantRec) {
-    runActionInTransaction(callCtx, () -> this.writeToGrantRecordsInCurrentTxn(callCtx, grantRec));
+    runActionInTransaction(callCtx, () -> this.writeToGrantRecords(callCtx, grantRec));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void deleteEntity(@Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity) {
-    runActionInTransaction(callCtx, () -> this.deleteEntityInCurrentTxn(callCtx, entity));
+  public void deleteEntityAtomically(
+      @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity) {
+    runActionInTransaction(callCtx, () -> this.deleteEntity(callCtx, entity));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void deleteFromGrantRecords(
+  public void deleteFromGrantRecordsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisGrantRecord grantRec) {
-    runActionInTransaction(
-        callCtx, () -> this.deleteFromGrantRecordsInCurrentTxn(callCtx, grantRec));
+    runActionInTransaction(callCtx, () -> this.deleteFromGrantRecords(callCtx, grantRec));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void deleteAllEntityGrantRecords(
+  public void deleteAllEntityGrantRecordsAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisEntityCore entity,
       @Nonnull List<PolarisGrantRecord> grantsOnGrantee,
@@ -273,29 +272,41 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     runActionInTransaction(
         callCtx,
         () ->
-            this.deleteAllEntityGrantRecordsInCurrentTxn(
-                callCtx, entity, grantsOnGrantee, grantsOnSecurable));
+            this.deleteAllEntityGrantRecords(callCtx, entity, grantsOnGrantee, grantsOnSecurable));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void deleteAll(@Nonnull PolarisCallContext callCtx) {
-    runActionInTransaction(callCtx, () -> this.deleteAllInCurrentTxn(callCtx));
+  public void deleteAllAtomically(@Nonnull PolarisCallContext callCtx) {
+    runActionInTransaction(callCtx, () -> this.deleteAll(callCtx));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public PolarisBaseEntity lookupEntity(
+  public PolarisBaseEntity lookupEntityAtomically(
       @Nonnull PolarisCallContext callCtx, long catalogId, long entityId, int typeCode) {
     return runInReadTransaction(
-        callCtx, () -> this.lookupEntityInCurrentTxn(callCtx, catalogId, entityId, typeCode));
+        callCtx, () -> this.lookupEntity(callCtx, catalogId, entityId, typeCode));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public PolarisBaseEntity lookupEntityByName(
+  public PolarisBaseEntity lookupEntityByNameAtomically(
+      @Nonnull PolarisCallContext callCtx,
+      long catalogId,
+      long parentId,
+      int typeCode,
+      @Nonnull String name) {
+    return runInReadTransaction(
+        callCtx, () -> this.lookupEntityByName(callCtx, catalogId, parentId, typeCode, name));
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  @Nullable
+  public EntityNameLookupRecord lookupEntityIdAndSubTypeByNameAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -303,73 +314,54 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull String name) {
     return runInReadTransaction(
         callCtx,
-        () -> this.lookupEntityByNameInCurrentTxn(callCtx, catalogId, parentId, typeCode, name));
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  @Nullable
-  public EntityNameLookupRecord lookupEntityIdAndSubTypeByName(
-      @Nonnull PolarisCallContext callCtx,
-      long catalogId,
-      long parentId,
-      int typeCode,
-      @Nonnull String name) {
-    return runInReadTransaction(
-        callCtx,
-        () ->
-            this.lookupEntityIdAndSubTypeByNameInCurrentTxn(
-                callCtx, catalogId, parentId, typeCode, name));
+        () -> this.lookupEntityIdAndSubTypeByName(callCtx, catalogId, parentId, typeCode, name));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public List<PolarisBaseEntity> lookupEntities(
+  public List<PolarisBaseEntity> lookupEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx, List<PolarisEntityId> entityIds) {
-    return runInReadTransaction(callCtx, () -> this.lookupEntitiesInCurrentTxn(callCtx, entityIds));
+    return runInReadTransaction(callCtx, () -> this.lookupEntities(callCtx, entityIds));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public List<PolarisChangeTrackingVersions> lookupEntityVersions(
+  public List<PolarisChangeTrackingVersions> lookupEntityVersionsAtomically(
       @Nonnull PolarisCallContext callCtx, List<PolarisEntityId> entityIds) {
-    return runInReadTransaction(
-        callCtx, () -> this.lookupEntityVersionsInCurrentTxn(callCtx, entityIds));
+    return runInReadTransaction(callCtx, () -> this.lookupEntityVersions(callCtx, entityIds));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public List<EntityNameLookupRecord> listEntities(
+  public List<EntityNameLookupRecord> listEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
       @Nonnull PolarisEntityType entityType) {
     return runInReadTransaction(
-        callCtx, () -> this.listEntitiesInCurrentTxn(callCtx, catalogId, parentId, entityType));
+        callCtx, () -> this.listEntities(callCtx, catalogId, parentId, entityType));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public List<EntityNameLookupRecord> listEntities(
+  public List<EntityNameLookupRecord> listEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
       @Nonnull PolarisEntityType entityType,
       @Nonnull Predicate<PolarisBaseEntity> entityFilter) {
     return runInReadTransaction(
-        callCtx,
-        () ->
-            this.listEntitiesInCurrentTxn(callCtx, catalogId, parentId, entityType, entityFilter));
+        callCtx, () -> this.listEntities(callCtx, catalogId, parentId, entityType, entityFilter));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public <T> List<T> listEntities(
+  public <T> List<T> listEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -380,23 +372,22 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     return runInReadTransaction(
         callCtx,
         () ->
-            this.listEntitiesInCurrentTxn(
+            this.listEntities(
                 callCtx, catalogId, parentId, entityType, limit, entityFilter, transformer));
   }
 
   /** {@inheritDoc} */
   @Override
-  public int lookupEntityGrantRecordsVersion(
+  public int lookupEntityGrantRecordsVersionAtomically(
       @Nonnull PolarisCallContext callCtx, long catalogId, long entityId) {
     return runInReadTransaction(
-        callCtx,
-        () -> this.lookupEntityGrantRecordsVersionInCurrentTxn(callCtx, catalogId, entityId));
+        callCtx, () -> this.lookupEntityGrantRecordsVersion(callCtx, catalogId, entityId));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public PolarisGrantRecord lookupGrantRecord(
+  public PolarisGrantRecord lookupGrantRecordAtomically(
       @Nonnull PolarisCallContext callCtx,
       long securableCatalogId,
       long securableId,
@@ -406,7 +397,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     return runInReadTransaction(
         callCtx,
         () ->
-            this.lookupGrantRecordInCurrentTxn(
+            this.lookupGrantRecord(
                 callCtx,
                 securableCatalogId,
                 securableId,
@@ -418,65 +409,59 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public List<PolarisGrantRecord> loadAllGrantRecordsOnSecurable(
+  public List<PolarisGrantRecord> loadAllGrantRecordsOnSecurableAtomically(
       @Nonnull PolarisCallContext callCtx, long securableCatalogId, long securableId) {
     return runInReadTransaction(
         callCtx,
-        () ->
-            this.loadAllGrantRecordsOnSecurableInCurrentTxn(
-                callCtx, securableCatalogId, securableId));
+        () -> this.loadAllGrantRecordsOnSecurable(callCtx, securableCatalogId, securableId));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public List<PolarisGrantRecord> loadAllGrantRecordsOnGrantee(
+  public List<PolarisGrantRecord> loadAllGrantRecordsOnGranteeAtomically(
       @Nonnull PolarisCallContext callCtx, long granteeCatalogId, long granteeId) {
     return runInReadTransaction(
-        callCtx,
-        () -> this.loadAllGrantRecordsOnGranteeInCurrentTxn(callCtx, granteeCatalogId, granteeId));
+        callCtx, () -> this.loadAllGrantRecordsOnGrantee(callCtx, granteeCatalogId, granteeId));
   }
 
   /** {@inheritDoc} */
   @Override
-  public boolean hasChildren(
+  public boolean hasChildrenAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nullable PolarisEntityType optionalEntityType,
       long catalogId,
       long parentId) {
     return runInReadTransaction(
-        callCtx,
-        () -> this.hasChildrenInCurrentTxn(callCtx, optionalEntityType, catalogId, parentId));
+        callCtx, () -> this.hasChildren(callCtx, optionalEntityType, catalogId, parentId));
   }
 
   //
   // Implementations of the one-shot atomic IntegrationPersistence methods which explicitly run
-  // the *InCurrentTxn variants of methods in a new transaction.
+  // the * variants of methods in a new transaction.
   //
 
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public PolarisPrincipalSecrets loadPrincipalSecrets(
+  public PolarisPrincipalSecrets loadPrincipalSecretsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull String clientId) {
-    return runInReadTransaction(
-        callCtx, () -> this.loadPrincipalSecretsInCurrentTxn(callCtx, clientId));
+    return runInReadTransaction(callCtx, () -> this.loadPrincipalSecrets(callCtx, clientId));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nonnull
-  public PolarisPrincipalSecrets generateNewPrincipalSecrets(
+  public PolarisPrincipalSecrets generateNewPrincipalSecretsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull String principalName, long principalId) {
     return runInTransaction(
-        callCtx,
-        () -> this.generateNewPrincipalSecretsInCurrentTxn(callCtx, principalName, principalId));
+        callCtx, () -> this.generateNewPrincipalSecrets(callCtx, principalName, principalId));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public PolarisPrincipalSecrets rotatePrincipalSecrets(
+  public PolarisPrincipalSecrets rotatePrincipalSecretsAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull String clientId,
       long principalId,
@@ -484,24 +469,22 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull String oldSecretHash) {
     return runInTransaction(
         callCtx,
-        () ->
-            this.rotatePrincipalSecretsInCurrentTxn(
-                callCtx, clientId, principalId, reset, oldSecretHash));
+        () -> this.rotatePrincipalSecrets(callCtx, clientId, principalId, reset, oldSecretHash));
   }
 
   /** {@inheritDoc} */
   @Override
-  public void deletePrincipalSecrets(
+  public void deletePrincipalSecretsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull String clientId, long principalId) {
     runActionInTransaction(
-        callCtx, () -> this.deletePrincipalSecretsInCurrentTxn(callCtx, clientId, principalId));
+        callCtx, () -> this.deletePrincipalSecrets(callCtx, clientId, principalId));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
   public <T extends PolarisStorageConfigurationInfo>
-      PolarisStorageIntegration<T> createStorageIntegration(
+      PolarisStorageIntegration<T> createStorageIntegrationAtomically(
           @Nonnull PolarisCallContext callCtx,
           long catalogId,
           long entityId,
@@ -509,62 +492,59 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     return runInTransaction(
         callCtx,
         () ->
-            this.createStorageIntegrationInCurrentTxn(
+            this.createStorageIntegration(
                 callCtx, catalogId, entityId, polarisStorageConfigurationInfo));
   }
 
   /** {@inheritDoc} */
   @Override
-  public <T extends PolarisStorageConfigurationInfo> void persistStorageIntegrationIfNeeded(
-      @Nonnull PolarisCallContext callCtx,
-      @Nonnull PolarisBaseEntity entity,
-      @Nullable PolarisStorageIntegration<T> storageIntegration) {
+  public <T extends PolarisStorageConfigurationInfo>
+      void persistStorageIntegrationIfNeededAtomically(
+          @Nonnull PolarisCallContext callCtx,
+          @Nonnull PolarisBaseEntity entity,
+          @Nullable PolarisStorageIntegration<T> storageIntegration) {
     runActionInTransaction(
-        callCtx,
-        () ->
-            this.persistStorageIntegrationIfNeededInCurrentTxn(
-                callCtx, entity, storageIntegration));
+        callCtx, () -> this.persistStorageIntegrationIfNeeded(callCtx, entity, storageIntegration));
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
   public <T extends PolarisStorageConfigurationInfo>
-      PolarisStorageIntegration<T> loadPolarisStorageIntegration(
+      PolarisStorageIntegration<T> loadPolarisStorageIntegrationAtomically(
           @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity) {
-    return runInReadTransaction(
-        callCtx, () -> this.loadPolarisStorageIntegrationInCurrentTxn(callCtx, entity));
+    return runInReadTransaction(callCtx, () -> this.loadPolarisStorageIntegration(callCtx, entity));
   }
 
   //
-  // Implementations of the *InCurrentTxn versions for basic write/delete/lookup using the
+  // Implementations of the in-transaction versions for basic write/delete/lookup using the
   // slice-based model supported by this class.
   //
 
   /** {@inheritDoc} */
   @Override
-  public void writeEntityInCurrentTxn(
+  public void writeEntity(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisBaseEntity entity,
       boolean nameOrParentChanged,
       @Nullable PolarisBaseEntity originalEntity) {
-    writeToEntitiesInCurrentTxn(callCtx, entity);
-    writeToEntitiesChangeTrackingInCurrentTxn(callCtx, entity);
+    writeToEntities(callCtx, entity);
+    writeToEntitiesChangeTracking(callCtx, entity);
 
     if (nameOrParentChanged) {
       if (originalEntity != null) {
         // In our case, rename isn't automatically handled when the main "entities" slice
         // is updated; instead we must explicitly remove from the old entitiesActive
         // key as well.
-        deleteFromEntitiesActiveInCurrentTxn(callCtx, originalEntity);
+        deleteFromEntitiesActive(callCtx, originalEntity);
       }
-      writeToEntitiesActiveInCurrentTxn(callCtx, entity);
+      writeToEntitiesActive(callCtx, entity);
     }
   }
 
   /** {@inheritDoc} */
   @Override
-  public void writeEntitiesInCurrentTxn(
+  public void writeEntities(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities) {
@@ -585,23 +565,22 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
           originalEntity == null
               || !entity.getName().equals(originalEntity.getName())
               || entity.getParentId() != originalEntity.getParentId();
-      this.writeEntityInCurrentTxn(callCtx, entity, nameOrParentChanged, originalEntity);
+      this.writeEntity(callCtx, entity, nameOrParentChanged, originalEntity);
     }
   }
 
   /** {@inheritDoc} */
   @Override
-  public void deleteEntityInCurrentTxn(
-      @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity) {
-    deleteFromEntitiesActiveInCurrentTxn(callCtx, entity);
-    deleteFromEntitiesInCurrentTxn(callCtx, entity);
-    deleteFromEntitiesChangeTrackingInCurrentTxn(callCtx, entity);
+  public void deleteEntity(@Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity) {
+    deleteFromEntitiesActive(callCtx, entity);
+    deleteFromEntities(callCtx, entity);
+    deleteFromEntitiesChangeTracking(callCtx, entity);
   }
 
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public PolarisBaseEntity lookupEntityByNameInCurrentTxn(
+  public PolarisBaseEntity lookupEntityByName(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -611,8 +590,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
         new PolarisEntitiesActiveKey(catalogId, parentId, typeCode, name);
 
     // ensure that the entity exists
-    EntityNameLookupRecord entityActiveRecord =
-        lookupEntityActiveInCurrentTxn(callCtx, entityActiveKey);
+    EntityNameLookupRecord entityActiveRecord = lookupEntityActive(callCtx, entityActiveKey);
 
     // if not found, return null
     if (entityActiveRecord == null) {
@@ -621,7 +599,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
 
     // lookup the entity, should be there
     PolarisBaseEntity entity =
-        lookupEntityInCurrentTxn(
+        lookupEntity(
             callCtx,
             entityActiveRecord.getCatalogId(),
             entityActiveRecord.getId(),
@@ -638,7 +616,7 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
   /** {@inheritDoc} */
   @Override
   @Nullable
-  public EntityNameLookupRecord lookupEntityIdAndSubTypeByNameInCurrentTxn(
+  public EntityNameLookupRecord lookupEntityIdAndSubTypeByName(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -646,6 +624,6 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull String name) {
     PolarisEntitiesActiveKey entityActiveKey =
         new PolarisEntitiesActiveKey(catalogId, parentId, typeCode, name);
-    return lookupEntityActiveInCurrentTxn(callCtx, entityActiveKey);
+    return lookupEntityActive(callCtx, entityActiveKey);
   }
 }

@@ -49,7 +49,7 @@ public interface BasePersistence {
    * @param callCtx call context
    * @return new unique entity identifier
    */
-  long generateNewId(@Nonnull PolarisCallContext callCtx);
+  long generateNewIdAtomically(@Nonnull PolarisCallContext callCtx);
 
   /**
    * Write this entity to the persistence backend. If successful, the write must be durable and
@@ -66,7 +66,7 @@ public interface BasePersistence {
    * @param originalEntity original state of the entity to use for compare-and-swap purposes, or
    *     null if this is expected to be a brand-new entity
    */
-  void writeEntity(
+  void writeEntityAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisBaseEntity entity,
       boolean nameOrParentChanged,
@@ -88,7 +88,7 @@ public interface BasePersistence {
    *     index as this list. If non-null, we expect all elements of originalEntities to be non-null;
    *     there is no mix-and-match "create" and "update" in a single batch.
    */
-  void writeEntities(
+  void writeEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull List<PolarisBaseEntity> entities,
       @Nullable List<PolarisBaseEntity> originalEntities);
@@ -101,7 +101,7 @@ public interface BasePersistence {
    * @param grantRec entity record to write, potentially replacing an existing entity record with
    *     the same key
    */
-  void writeToGrantRecords(
+  void writeToGrantRecordsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisGrantRecord grantRec);
 
   /**
@@ -110,7 +110,8 @@ public interface BasePersistence {
    * @param callCtx call context
    * @param entity entity to delete
    */
-  void deleteEntity(@Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity);
+  void deleteEntityAtomically(
+      @Nonnull PolarisCallContext callCtx, @Nonnull PolarisBaseEntity entity);
 
   /**
    * Delete the specified grantRecord to the grant_records table.
@@ -118,7 +119,7 @@ public interface BasePersistence {
    * @param callCtx call context
    * @param grantRec entity record to delete.
    */
-  void deleteFromGrantRecords(
+  void deleteFromGrantRecordsAtomically(
       @Nonnull PolarisCallContext callCtx, @Nonnull PolarisGrantRecord grantRec);
 
   /**
@@ -132,7 +133,7 @@ public interface BasePersistence {
    *     grantee
    * @param grantsOnSecurable all grants on that securable entity
    */
-  void deleteAllEntityGrantRecords(
+  void deleteAllEntityGrantRecordsAtomically(
       @Nonnull PolarisCallContext callCtx,
       @Nonnull PolarisEntityCore entity,
       @Nonnull List<PolarisGrantRecord> grantsOnGrantee,
@@ -144,7 +145,7 @@ public interface BasePersistence {
    *
    * @param callCtx call context
    */
-  void deleteAll(@Nonnull PolarisCallContext callCtx);
+  void deleteAllAtomically(@Nonnull PolarisCallContext callCtx);
 
   /**
    * Lookup an entity given its catalog id (which can be {@link
@@ -164,7 +165,7 @@ public interface BasePersistence {
    * @return null if the entity was not found, else the retrieved entity.
    */
   @Nullable
-  PolarisBaseEntity lookupEntity(
+  PolarisBaseEntity lookupEntityAtomically(
       @Nonnull PolarisCallContext callCtx, long catalogId, long entityId, int typeCode);
 
   /**
@@ -182,7 +183,7 @@ public interface BasePersistence {
    * @return null if the specified entity does not exist
    */
   @Nullable
-  PolarisBaseEntity lookupEntityByName(
+  PolarisBaseEntity lookupEntityByNameAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -200,13 +201,14 @@ public interface BasePersistence {
    * @return null if the specified entity does not exist
    */
   @Nullable
-  default EntityNameLookupRecord lookupEntityIdAndSubTypeByName(
+  default EntityNameLookupRecord lookupEntityIdAndSubTypeByNameAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
       int typeCode,
       @Nonnull String name) {
-    PolarisBaseEntity baseEntity = lookupEntityByName(callCtx, catalogId, parentId, typeCode, name);
+    PolarisBaseEntity baseEntity =
+        lookupEntityByNameAtomically(callCtx, catalogId, parentId, typeCode, name);
     if (baseEntity == null) {
       return null;
     }
@@ -222,7 +224,7 @@ public interface BasePersistence {
    *     will be null if the corresponding entity could not be found.
    */
   @Nonnull
-  List<PolarisBaseEntity> lookupEntities(
+  List<PolarisBaseEntity> lookupEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx, List<PolarisEntityId> entityIds);
 
   /**
@@ -234,7 +236,7 @@ public interface BasePersistence {
    *     corresponding element in the list will be null
    */
   @Nonnull
-  List<PolarisChangeTrackingVersions> lookupEntityVersions(
+  List<PolarisChangeTrackingVersions> lookupEntityVersionsAtomically(
       @Nonnull PolarisCallContext callCtx, List<PolarisEntityId> entityIds);
 
   /**
@@ -247,7 +249,7 @@ public interface BasePersistence {
    * @return the list of entities for the specified list operation
    */
   @Nonnull
-  List<EntityNameLookupRecord> listEntities(
+  List<EntityNameLookupRecord> listEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -265,7 +267,7 @@ public interface BasePersistence {
    * @return the list of entities for which the predicate returns true
    */
   @Nonnull
-  List<EntityNameLookupRecord> listEntities(
+  List<EntityNameLookupRecord> listEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -287,7 +289,7 @@ public interface BasePersistence {
    * @return the list of entities for which the predicate returns true
    */
   @Nonnull
-  <T> List<T> listEntities(
+  <T> List<T> listEntitiesAtomically(
       @Nonnull PolarisCallContext callCtx,
       long catalogId,
       long parentId,
@@ -305,7 +307,7 @@ public interface BasePersistence {
    * @param entityId unique entity id
    * @return current grant records version for that entity.
    */
-  int lookupEntityGrantRecordsVersion(
+  int lookupEntityGrantRecordsVersionAtomically(
       @Nonnull PolarisCallContext callCtx, long catalogId, long entityId);
 
   /**
@@ -321,7 +323,7 @@ public interface BasePersistence {
    * @return the grant record if found, NULL if not found
    */
   @Nullable
-  PolarisGrantRecord lookupGrantRecord(
+  PolarisGrantRecord lookupGrantRecordAtomically(
       @Nonnull PolarisCallContext callCtx,
       long securableCatalogId,
       long securableId,
@@ -339,7 +341,7 @@ public interface BasePersistence {
    * @return the list of grant records for the specified securable
    */
   @Nonnull
-  List<PolarisGrantRecord> loadAllGrantRecordsOnSecurable(
+  List<PolarisGrantRecord> loadAllGrantRecordsOnSecurableAtomically(
       @Nonnull PolarisCallContext callCtx, long securableCatalogId, long securableId);
 
   /**
@@ -351,7 +353,7 @@ public interface BasePersistence {
    * @return the list of grant records for the specified grantee
    */
   @Nonnull
-  List<PolarisGrantRecord> loadAllGrantRecordsOnGrantee(
+  List<PolarisGrantRecord> loadAllGrantRecordsOnGranteeAtomically(
       @Nonnull PolarisCallContext callCtx, long granteeCatalogId, long granteeId);
 
   /**
@@ -366,7 +368,7 @@ public interface BasePersistence {
    * @param parentId id of the parent
    * @return true if the parent entity has children
    */
-  boolean hasChildren(
+  boolean hasChildrenAtomically(
       @Nonnull PolarisCallContext callContext,
       @Nullable PolarisEntityType optionalEntityType,
       long catalogId,
