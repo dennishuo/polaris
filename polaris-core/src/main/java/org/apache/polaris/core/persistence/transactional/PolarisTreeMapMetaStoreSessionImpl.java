@@ -215,7 +215,7 @@ public class PolarisTreeMapMetaStoreSessionImpl extends AbstractTransactionalPer
   /** {@inheritDoc} */
   @Override
   public @Nullable PolarisBaseEntity lookupEntityInCurrentTxn(
-      @Nonnull PolarisCallContext callCtx, long catalogId, long entityId) {
+      @Nonnull PolarisCallContext callCtx, long catalogId, long entityId, int typeCode) {
     return this.store.getSliceEntities().read(this.store.buildKeyComposite(catalogId, entityId));
   }
 
@@ -343,7 +343,10 @@ public class PolarisTreeMapMetaStoreSessionImpl extends AbstractTransactionalPer
         .getSliceEntitiesActive()
         .readRange(this.store.buildPrefixKeyComposite(catalogId, parentId, entityType.getCode()))
         .stream()
-        .map(nameRecord -> this.lookupEntityInCurrentTxn(callCtx, catalogId, nameRecord.getId()))
+        .map(
+            nameRecord ->
+                this.lookupEntityInCurrentTxn(
+                    callCtx, catalogId, nameRecord.getId(), entityType.getCode()))
         .filter(entityFilter)
         .limit(limit)
         .map(transformer)

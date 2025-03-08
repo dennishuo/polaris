@@ -137,7 +137,8 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
       @Nonnull PolarisBaseEntity entity,
       @Nullable PolarisBaseEntity originalEntity) {
     PolarisBaseEntity refreshedEntity =
-        this.lookupEntityInCurrentTxn(callCtx, entity.getCatalogId(), entity.getId());
+        this.lookupEntityInCurrentTxn(
+            callCtx, entity.getCatalogId(), entity.getId(), entity.getTypeCode());
 
     if (originalEntity == null) {
       if (refreshedEntity != null) {
@@ -286,9 +287,9 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
   @Override
   @Nullable
   public PolarisBaseEntity lookupEntity(
-      @Nonnull PolarisCallContext callCtx, long catalogId, long entityId) {
+      @Nonnull PolarisCallContext callCtx, long catalogId, long entityId, int typeCode) {
     return runInReadTransaction(
-        callCtx, () -> this.lookupEntityInCurrentTxn(callCtx, catalogId, entityId));
+        callCtx, () -> this.lookupEntityInCurrentTxn(callCtx, catalogId, entityId, typeCode));
   }
 
   /** {@inheritDoc} */
@@ -621,7 +622,10 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     // lookup the entity, should be there
     PolarisBaseEntity entity =
         lookupEntityInCurrentTxn(
-            callCtx, entityActiveRecord.getCatalogId(), entityActiveRecord.getId());
+            callCtx,
+            entityActiveRecord.getCatalogId(),
+            entityActiveRecord.getId(),
+            entityActiveRecord.getTypeCode());
     callCtx
         .getDiagServices()
         .checkNotNull(
