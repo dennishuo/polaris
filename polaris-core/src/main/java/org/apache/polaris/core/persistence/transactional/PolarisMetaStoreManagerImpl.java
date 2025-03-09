@@ -266,6 +266,9 @@ public class PolarisMetaStoreManagerImpl extends BaseMetaStoreManager {
     securableEntity.setGrantRecordsVersion(securableEntity.getGrantRecordsVersion() + 1);
     ms.writeEntity(callCtx, securableEntity, false, originalSecurableEntity);
 
+    // TODO: Update this to be an atomic bulk-update of the grantee/securable, ideally along
+    // with adding the grant record in the same bulk-update.
+
     // done, return the new grant record
     return grantRecord;
   }
@@ -348,6 +351,9 @@ public class PolarisMetaStoreManagerImpl extends BaseMetaStoreManager {
     // grants have changed, we need to bump-up the grants version
     refreshSecurable.setGrantRecordsVersion(refreshSecurable.getGrantRecordsVersion() + 1);
     ms.writeEntity(callCtx, refreshSecurable, false, originalRefreshSecurable);
+
+    // TODO: Update this to be an atomic bulk-update of the grantee/securable, ideally along
+    // with removing the grant record in the same bulk-update.
   }
 
   /**

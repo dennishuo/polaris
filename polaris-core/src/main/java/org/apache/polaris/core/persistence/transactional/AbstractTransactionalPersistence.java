@@ -221,6 +221,12 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
             PolarisBaseEntity entity = entities.get(i);
             PolarisBaseEntity originalEntity =
                 originalEntities != null ? originalEntities.get(i) : null;
+            // TODO: This isn't quite correct right now, because originalEntity is only actually
+            // safe to use for entityVersion and grantRecordsVersion right now. Once we refactor
+            // the writeEntities[Atomically] methods to take something like PolarisEntityCore
+            // for originalEntity and force the callsites such as BasePolarisCatalog to actually
+            // provide the original values, this will be correct. For now, the API does't support
+            // bulk renames anyways.
             boolean nameOrParentChanged =
                 originalEntity == null
                     || !entity.getName().equals(originalEntity.getName())
@@ -561,6 +567,12 @@ public abstract class AbstractTransactionalPersistence implements TransactionalP
     for (int i = 0; i < entities.size(); ++i) {
       PolarisBaseEntity entity = entities.get(i);
       PolarisBaseEntity originalEntity = originalEntities != null ? originalEntities.get(i) : null;
+      // TODO: This isn't quite correct right now, because originalEntity is only actually
+      // safe to use for entityVersion and grantRecordsVersion right now. Once we refactor
+      // the writeEntities[Atomically] methods to take something like PolarisEntityCore
+      // for originalEntity and force the callsites such as BasePolarisCatalog to actually
+      // provide the original values, this will be correct. For now, the API does't support
+      // bulk renames anyways.
       boolean nameOrParentChanged =
           originalEntity == null
               || !entity.getName().equals(originalEntity.getName())
