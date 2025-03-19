@@ -263,9 +263,6 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
       }
     }
     resolutionManifest.resolveAll();
-
-    CatalogEntity resolvedCatalogEntity =
-        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(namespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
@@ -299,9 +296,6 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
             Arrays.asList(namespace.levels()), PolarisEntityType.NAMESPACE, true /* optional */),
         namespace);
     resolutionManifest.resolveAll();
-
-    CatalogEntity resolvedCatalogEntity =
-        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(parentNamespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", parentNamespace);
@@ -339,9 +333,6 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
             true /* optional */),
         identifier);
     resolutionManifest.resolveAll();
-
-    CatalogEntity resolvedCatalogEntity =
-        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
     PolarisResolvedPathWrapper target = resolutionManifest.getResolvedPath(namespace, true);
     if (target == null) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", namespace);
@@ -369,9 +360,6 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
             true /* optional */),
         identifier);
     resolutionManifest.resolveAll();
-
-    CatalogEntity resolvedCatalogEntity =
-        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
     PolarisResolvedPathWrapper target =
         resolutionManifest.getResolvedPath(identifier, PolarisEntityType.TABLE_LIKE, subType, true);
     if (target == null) {
@@ -407,8 +395,6 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
 
     ResolverStatus status = resolutionManifest.resolveAll();
 
-    CatalogEntity resolvedCatalogEntity =
-        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
     // If one of the paths failed to resolve, throw exception based on the one that
     // we first failed to resolve.
     if (status.getStatus() == ResolverStatus.StatusEnum.PATH_COULD_NOT_BE_FULLY_RESOLVED) {
@@ -469,9 +455,6 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
             true /* optional */),
         dst);
     ResolverStatus status = resolutionManifest.resolveAll();
-
-    CatalogEntity resolvedCatalogEntity =
-        CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
     if (status.getStatus() == ResolverStatus.StatusEnum.PATH_COULD_NOT_BE_FULLY_RESOLVED
         && status.getFailedToResolvePath().getLastEntityType() == PolarisEntityType.NAMESPACE) {
       throw new NoSuchNamespaceException("Namespace does not exist: %s", dst.namespace());
