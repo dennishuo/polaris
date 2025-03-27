@@ -31,7 +31,6 @@ public enum PolarisEntityType {
   CATALOG(4, ROOT, false, false),
   CATALOG_ROLE(5, CATALOG, true, false),
   NAMESPACE(6, CATALOG, false, true),
-  // generic table is either a view or a real table
   TABLE_LIKE(7, NAMESPACE, false, false),
   TASK(8, ROOT, false, false),
   FILE(9, TABLE_LIKE, false, false),
