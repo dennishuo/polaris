@@ -79,6 +79,7 @@ import org.apache.polaris.core.auth.PolarisAuthorizer;
 import org.apache.polaris.core.catalog.PolarisCatalogHelpers;
 import org.apache.polaris.core.config.FeatureConfiguration;
 import org.apache.polaris.core.config.PolarisConfigurationStore;
+import org.apache.polaris.core.connection.IcebergRestConnectionConfigurationInfo;
 import org.apache.polaris.core.connection.PolarisConnectionConfigurationInfo;
 import org.apache.polaris.core.context.CallContext;
 import org.apache.polaris.core.entity.CatalogEntity;
@@ -93,6 +94,8 @@ import org.apache.polaris.core.persistence.dao.entity.EntityWithPath;
 import org.apache.polaris.core.persistence.resolver.PolarisResolutionManifest;
 import org.apache.polaris.core.persistence.resolver.ResolverPath;
 import org.apache.polaris.core.persistence.resolver.ResolverStatus;
+import org.apache.polaris.core.secrets.UnsafeInMemorySecretsManager;
+import org.apache.polaris.core.secrets.UserSecretsManager;
 import org.apache.polaris.core.storage.PolarisStorageActions;
 import org.apache.polaris.service.catalog.SupportsNotifications;
 import org.apache.polaris.service.context.CallContextCatalogFactory;
@@ -183,6 +186,11 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
     return isCreate;
   }
 
+  private UserSecretsManager getUserSecretsManager() {
+    // TODO: Wire into appropriate factories and/or contexts.
+    return UnsafeInMemorySecretsManager.GLOBAL_INSTANCE;
+  }
+
   private void initializeCatalog() {
     CatalogEntity resolvedCatalogEntity =
         CatalogEntity.of(resolutionManifest.getResolvedReferenceCatalogEntity().getRawLeafEntity());
@@ -205,14 +213,15 @@ public class IcebergCatalogHandlerWrapper implements AutoCloseable {
                       HTTPClient.builder(config)
                           .uri(config.get(org.apache.iceberg.CatalogProperties.URI))
                           .build());
+          federatedCatalog.initialize(
+              ((IcebergRestConnectionConfigurationInfo) connectionConfigurationInfo)
+                  .getRemoteCatalogName(),
+              connectionConfigurationInfo.asIcebergCatalogProperties(getUserSecretsManager()));
           break;
         default:
           throw new UnsupportedOperationException(
               "Connection type not supported: " + connectionConfigurationInfo.getConnectionType());
       }
-      federatedCatalog.initialize(
-          resolvedCatalogEntity.getConnectionCatalogName(),
-          connectionConfigurationInfo.asIcebergCatalogProperties());
       this.baseCatalog = federatedCatalog;
     } else {
       LOGGER.atInfo().log("Initializing non-federated catalog");
