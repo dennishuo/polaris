@@ -120,7 +120,7 @@ public class UnsafeInMemorySecretsManager implements UserSecretsManager {
     // Validate integrity of the base64-encoded ciphertext which was retrieved from the secret
     // store against the hash we stored in the referencePayload.
     String expecteCipherTextBase64Hash = secretReference.getReferencePayload().get(CIPHERTEXT_HASH);
-    String retrievedCipherTextBase64Hash = DigestUtils.sha256hex(encryptedSecretCipherTextBase64);
+    String retrievedCipherTextBase64Hash = DigestUtils.sha256Hex(encryptedSecretCipherTextBase64);
     if (!Objects.equals(retrievedCipherTextBase64Hash, expecteCipherTextBase64Hash)) {
       throw new IllegalArgumentException(
           String.format(
