@@ -30,11 +30,11 @@ import org.apache.polaris.core.secrets.UserSecretsManagerFactory;
 @ApplicationScoped
 @Identifier("in-memory")
 public class UnsafeInMemorySecretsManagerFactory implements UserSecretsManagerFactory {
-  private final Map<String, UserSecretsManager> cachedEntityManagers = new ConcurrentHashMap<>();
+  private final Map<String, UserSecretsManager> cachedSecretsManagers = new ConcurrentHashMap<>();
 
   @Override
   public UserSecretsManager getOrCreateUserSecretsManager(RealmContext realmContext) {
-    return cachedEntityManagers.computeIfAbsent(
+    return cachedSecretsManagers.computeIfAbsent(
         realmContext.getRealmIdentifier(), key -> new UnsafeInMemorySecretsManager());
   }
 }
