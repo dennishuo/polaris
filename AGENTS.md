@@ -253,6 +253,106 @@ If a DISCIPLINE step reveals a problem, fix it and re-run the HARD GATE steps.
 
 ---
 
+## Recipes for Common Extension Tasks
+
+These are concrete file-touch lists for common feature additions. They
+are not exhaustive, but they reflect where Polaris contributors most
+often go looking and what an early PR review will check.
+
+### Adding a new authorization-related operation enum constant
+
+If you are adding a new operation that the authorizer must recognize:
+
+1. Edit `polaris-core/src/main/java/org/apache/polaris/core/auth/PolarisAuthorizableOperation.java`
+   and add the new constant. Place it near related operations
+   (e.g. `LIST_*` constants are grouped together) and follow the
+   existing naming convention (UPPER_SNAKE_CASE, no trailing underscores).
+2. **You MUST ALSO** edit
+   `polaris-core/src/main/java/org/apache/polaris/core/auth/RbacOperationSemantics.java`
+   and add a corresponding `register(NEW_CONSTANT, <PRIVILEGE>)` call
+   inside the static initializer. Pick the privilege by analogy to the
+   nearest existing operation (e.g. a new `LIST_*` operation typically
+   maps to `TABLE_LIST` or the analogous list privilege). Without this
+   registration the static initializer aborts at class load with
+   `Missing RBAC semantics for operations: [...]` and every authorizer
+   test fails.
+3. If the new operation needs a privilege-to-operation mapping in the
+   default authorizer beyond the `register` call above, locate the
+   mapping (search for the existing operation it is most analogous to)
+   and add the parallel entry.
+4. Verify with `./gradlew :polaris-core:compileJava` and then
+   `./gradlew :polaris-core:test --tests "*PolarisAuthorizer*"`.
+
+Both files (the enum and `RbacOperationSemantics`) are modified
+together as a single additive change. No test files need to be
+modified.
+
+### Adding a new event attribute key (typed)
+
+Polaris events use strongly-typed attribute keys
+(`AttributeKey<T>`) defined as constants in
+`runtime/service/src/main/java/org/apache/polaris/service/events/EventAttributes.java`.
+The type parameter on each key is enforced at construction time
+against `AllowedAttributeTypes`.
+
+For attributes whose Java type is **non-generic** (a plain class
+like `String`, `Long`, or `Catalog`), construct the key with the
+two-argument `(String name, Class<T> type)` constructor:
+
+```java
+public static final AttributeKey<String> NAMESPACE_FQN =
+    new AttributeKey<>("namespace_fqn", String.class);
+```
+
+For attributes whose Java type **carries generic parameters**
+(e.g. `List<String>`, `Map<String, String>`), the `Class<T>` form
+will not work because of Java type erasure. You must capture the
+parameterized type with a `TypeToken` anonymous subclass and use
+the `(String name, TypeToken<T> type)` constructor:
+
+```java
+public static final AttributeKey<Map<String, String>> NAMESPACE_PROPERTIES =
+    new AttributeKey<>("namespace_properties", new TypeToken<Map<String, String>>() {});
+```
+
+The `TypeToken` import is `com.google.common.reflect.TypeToken`.
+Match the existing pattern in `EventAttributes.java`; do not invent
+new wire names — use lower_snake_case to match the existing
+convention.
+
+When writing tests for the new key, follow the pattern in
+`runtime/service/src/test/java/org/apache/polaris/service/events/AttributeMapTest.java`:
+declare the key as a `private static final` in the test class, use
+AssertJ (`assertThat(...).hasValue(...)`,
+`assertThat(...).isEmpty()`), and prefer `getRequired(key)` when the
+test asserts presence.
+
+### Adding a new predefined system policy type
+
+1. Create a new directory under
+   `polaris-core/src/main/resources/schemas/policies/system/<kebab-name>/`.
+2. Add a JSON schema file using the same date-based naming
+   convention as adjacent policies (see `snapshot-expiry/`).
+3. Register the policy in
+   `polaris-core/src/main/java/org/apache/polaris/core/policy/PredefinedPolicyTypes.java`.
+4. Verify with `./gradlew :polaris-core:compileJava`.
+
+### Stubbing a new federation extension module
+
+1. Create a new directory `extensions/federation/<name>/` with a
+   `build.gradle.kts` mirroring an adjacent extension
+   (e.g. `extensions/federation/bigquery/build.gradle.kts`).
+2. Register the module in `gradle/projects.main.properties` with
+   the key `polaris-extensions-federation-<name>` (this step is
+   required; the build system does not auto-discover
+   `extensions/federation/*`).
+3. Add an ASF license header to every new Java file (copy the
+   header from any existing source file in the repo).
+4. Verify with
+   `./gradlew :polaris-extensions-federation-<name>:compileJava`.
+
+---
+
 ## Common Mistakes
 
 **Changing interface method signatures.** [DISCIPLINE]
